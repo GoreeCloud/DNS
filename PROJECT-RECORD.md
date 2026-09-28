@@ -1,5 +1,19 @@
 # Project Record — GoreeCloud DNS
 
+## 2026-09-27 — Native DNS Cache Controls 0.4 candidate
+
+- Added `CacheConfig` to the current-lineage `MemoryCache` for maximum-entry, minimum-TTL, and maximum-TTL controls.
+- Invalid negative capacity and minimum-TTL-above-maximum-TTL configuration fail closed.
+- Zero-TTL records remain explicitly non-cacheable instead of being raised by the minimum-TTL control.
+- Added `CacheStats` aggregate counters for entries, hits, misses, stores, evictions, and expirations.
+- Aggregate stats deliberately expose no query names, record data, client IDs, addresses, or raw errors.
+- Added focused tests plus repository-governance requirements.
+
+### Verification boundary
+
+This candidate remains process-local Development cache logic. It does not add negative caching, stale serving, prefetch, persistence, synchronization, DNSSEC, DNS listeners, recursive network resolution, production observability export, client DNS changes, or production authority. Exact-head CI, vulnerability reachability, and repository-governance validation are required before source acceptance.
+
+
 ## 2026-09-27 — Native DNS Cache 0.3 candidate
 
 - Added `internal/dnscore/cache.go` as the first concrete Cache implementation for the current-lineage native DNS core.
