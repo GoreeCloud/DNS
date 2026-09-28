@@ -34,11 +34,11 @@ func TestMemoryCacheNormalizesQuestionName(t *testing.T) {
 	result := Result{
 		Code: ResultSuccess,
 		Records: []Record{{
-			Name: "example.test.",
-			Type: 1,
+			Name:  "example.test.",
+			Type:  1,
 			Class: 1,
-			TTL:  60,
-			Data: "192.0.2.10",
+			TTL:   60,
+			Data:  "192.0.2.10",
 		}},
 	}
 	if err := cache.Put(ctx, stored, result); err != nil {
@@ -64,7 +64,7 @@ func TestMemoryCachePartitionsByClientID(t *testing.T) {
 
 	request := Request{Name: "example.test.", Type: 1, Class: 1, ClientID: "client-a"}
 	if err := cache.Put(ctx, request, Result{
-		Code: ResultSuccess,
+		Code:    ResultSuccess,
 		Records: []Record{{Name: request.Name, Type: 1, Class: 1, TTL: 60, Data: "192.0.2.11"}},
 	}); err != nil {
 		t.Fatalf("Put() error = %v", err)
@@ -150,7 +150,7 @@ func TestMemoryCacheEvictsOldestEntryAtCapacity(t *testing.T) {
 	}
 	for i, request := range requests {
 		if err := cache.Put(ctx, request, Result{
-			Code: ResultSuccess,
+			Code:    ResultSuccess,
 			Records: []Record{{Name: request.Name, Type: 1, Class: 1, TTL: 60, Data: string(rune('a' + i))}},
 		}); err != nil {
 			t.Fatalf("Put(%q) error = %v", request.Name, err)
@@ -211,7 +211,7 @@ func TestMemoryCacheFlush(t *testing.T) {
 	request := Request{Name: "example.test.", Type: 1, Class: 1}
 
 	if err := cache.Put(ctx, request, Result{
-		Code: ResultSuccess,
+		Code:    ResultSuccess,
 		Records: []Record{{Name: request.Name, Type: 1, Class: 1, TTL: 60}},
 	}); err != nil {
 		t.Fatalf("Put() error = %v", err)
