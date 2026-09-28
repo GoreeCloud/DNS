@@ -1,5 +1,17 @@
 # Project Record — GoreeCloud DNS
 
+## 2026-09-27 — Development service foundation established
+
+- Added the first executable source foundation for the recreated `GoreeCloud/DNS` repository.
+- Added a standard-library Go service with an operational control plane restricted to explicit loopback addresses.
+- Added health/readiness endpoints, bounded HTTP server resources, graceful shutdown, unit tests, exact-source CI, and reachable-vulnerability scanning.
+- Added architecture, security, privacy, Platform Contract, and nine-system applicability records.
+- Intentionally did not add a DNS-serving listener or alter production DNS/network state.
+
+### Verification boundary
+
+This milestone is Development source evidence only. Exact-head automated validation is required for source acceptance. Even successful CI does not establish production DNS correctness, deployment, listener cutover, Release Candidate status, or Stable status.
+
 ## Current Verified State
 
 - **Repository:** `GoreeCloud/DNS`
@@ -7,9 +19,9 @@
 - **Visibility:** Public
 - **Default branch:** `main`
 - **Lifecycle:** Development
-- **Current verified product implementation:** None present in this repository
-- **Current verified repository content:** Repository documentation only
-- **Current authoritative implementation evidence:** No DNS runtime, server source tree, executable, deployment, release artifact, or production acceptance is verified in the current repository lineage.
+- **Current verified product implementation:** Bounded non-DNS-serving Development service foundation
+- **Current verified repository content:** Project documentation plus Go source, tests, CI, and security/privacy/platform baselines
+- **Current authoritative implementation evidence:** A loopback-only operational HTTP foundation is present; no DNS-serving runtime, production deployment, release artifact, or production acceptance is established.
 
 ## Current Repository History
 
