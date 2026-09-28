@@ -49,3 +49,15 @@ func TestLoadFromRejectsNonLoopback(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadFromRejectsInvalidPort(t *testing.T) {
+	_, err := LoadFrom(func(key string) string {
+		if key == "GOREECLOUD_DNS_ADMIN_LISTEN" {
+			return "127.0.0.1:70000"
+		}
+		return ""
+	})
+	if err == nil {
+		t.Fatal("LoadFrom() error = nil, want invalid port error")
+	}
+}
