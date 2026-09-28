@@ -4,7 +4,7 @@ GoreeCloud DNS is a privacy-first, self-hosted DNS platform under active Develop
 
 The target product combines recursive resolution, authoritative DNS, encrypted DNS, network-wide filtering, policy, DHCP integration, observability, automation, and resilient multi-node operation while preserving administrator ownership and GoreeCloud privacy/security boundaries.
 
-> **Current implementation status:** This repository contains a bounded Go Development service foundation plus a first-party in-process DNS request pipeline. The pipeline defines Policy, Authority, Cache, and Resolver contracts with deterministic fail-closed coordination, but it is not connected to DNS wire traffic. The repository does **not** yet serve DNS traffic or establish a production deployment, release, or Stable status.
+> **Current implementation status:** This repository contains a bounded Go Development service foundation plus a first-party in-process DNS request pipeline. The pipeline defines Policy, Authority, Cache, and Resolver contracts with deterministic fail-closed coordination, and the Cache contract now has a bounded TTL-aware in-memory implementation. Neither is connected to DNS wire traffic. The repository does **not** yet serve DNS traffic or establish a production deployment, release, or Stable status.
 
 ## Product identity
 
@@ -25,7 +25,8 @@ The first executable slice intentionally does not open DNS UDP/TCP sockets. It p
 - bounded HTTP server limits and graceful shutdown;
 - unit tests, exact-source CI, and reachable-vulnerability scanning;
 - architecture, security, privacy, Platform Contract, and nine-system integration boundaries;
-- `internal/dnscore`, a non-network request-processing core ordered policy → authority → cache → resolver, with short-circuit and failure-path tests.
+- `internal/dnscore`, a non-network request-processing core ordered policy → authority → cache → resolver, with short-circuit and failure-path tests;
+- `MemoryCache`, a client-partitioned TTL-aware in-memory cache with bounded capacity, deterministic oldest-entry eviction, expiry cleanup, and defensive result copies.
 
 The default Development control-plane address is `127.0.0.1:8853`.
 

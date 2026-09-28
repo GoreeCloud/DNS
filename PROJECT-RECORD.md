@@ -1,5 +1,21 @@
 # Project Record — GoreeCloud DNS
 
+## 2026-09-27 — Native DNS Cache 0.3 candidate
+
+- Added `internal/dnscore/cache.go` as the first concrete Cache implementation for the current-lineage native DNS core.
+- Cache keys normalize DNS names, bind type/class, and partition by client ID.
+- Only successful responses with records and non-zero TTLs are cached.
+- Expiration uses the minimum answer TTL; returned TTLs age with elapsed time and expired entries are cleaned on lookup.
+- Bounded caches use deterministic oldest-entry eviction; zero capacity remains unbounded for Development.
+- Cache-owned results and returned results use defensive record-slice copies.
+- Cancelled contexts and invalid requests fail before cache mutation or lookup.
+- Added focused tests and repository-governance requirements.
+
+### Verification boundary
+
+This candidate is process-local Development cache logic only. It does not persist state, synchronize cache entries, validate DNSSEC, open DNS listeners, perform recursive network resolution, alter client DNS settings, or change production authority. Exact-head CI, vulnerability reachability, and repository-governance validation are required before source acceptance.
+
+
 ## 2026-09-27 — Native DNS Core 0.2 candidate
 
 - Added `internal/dnscore` as the first current-lineage DNS-domain implementation beyond the operational service shell.

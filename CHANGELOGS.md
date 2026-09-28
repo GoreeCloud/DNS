@@ -4,6 +4,16 @@ This changelog records verified changes to the **current** `GoreeCloud/DNS` repo
 
 ## 2026-09-27
 
+### Native DNS Cache 0.3 candidate
+
+- Added a concrete in-memory implementation of the native DNS Cache contract.
+- Added normalized DNS question keys partitioned by client ID.
+- Added successful-result-only storage, minimum-TTL expiry, per-record TTL aging, lookup-time expiry cleanup, bounded deterministic oldest-entry eviction, flush support, context cancellation, and defensive copy isolation.
+- Added deterministic tests for capacity validation, name normalization, client partitioning, expiry/aging, non-cacheable results, eviction, copy isolation, flush, and cancellation.
+- Extended repository governance to require the cache implementation and negative-path tests.
+- No DNS listener, persistent/distributed cache, recursive network resolver, DNSSEC validation, production traffic, or production authority is introduced.
+
+
 ### Native DNS Core 0.2
 
 - Added first-party Request, Result, Record, Policy, Authority, Cache, and Resolver contracts under `internal/dnscore`.

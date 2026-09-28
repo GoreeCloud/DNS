@@ -16,6 +16,6 @@ Running `go run ./cmd/goreecloud-dns` starts the Development control plane on `1
 
 ## Native core
 
-The repository includes an in-process request pipeline under `internal/dnscore`. It is exercised only through source/tests at this stage and is not wired to network traffic.
+The repository includes an in-process request pipeline under `internal/dnscore` plus a process-local `MemoryCache` implementation. They are exercised only through source/tests at this stage and are not wired to network traffic. The cache is ephemeral and is cleared when the process exits.
 
 No production DNS listener, client configuration, filtering policy, resolver cutover, or Stable operation is available from this Development milestone.

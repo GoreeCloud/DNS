@@ -2,7 +2,7 @@
 
 ## Status
 
-Development architecture baseline. The current source includes a loopback-only operational control-plane foundation plus a first-party in-process request pipeline. It does not listen for DNS traffic and does not implement concrete recursive networking, authoritative-zone storage, cache storage, filtering catalogs, DHCP, encrypted-DNS transports, or production policy enforcement.
+Development architecture baseline. The current source includes a loopback-only operational control-plane foundation plus a first-party in-process request pipeline. It does not listen for DNS traffic and does not implement concrete recursive networking, authoritative-zone persistence, durable cache persistence, filtering catalogs, DHCP, encrypted-DNS transports, or production policy enforcement.
 
 ## Current source boundary
 
@@ -24,6 +24,14 @@ No DNS UDP/TCP socket is opened by this foundation. No production listener, clie
 The in-process core is deliberately independent of DNS sockets and external resolver libraries. Policy can block a request before later stages execute. Authoritative and cache hits short-circuit subsequent stages. Missing stages are rejected at construction, invalid requests are rejected before stage execution, and stage errors stop resolution rather than silently falling through. The pipeline overwrites result source attribution so callers can distinguish the authoritative stage that produced a result.
 
 This is coordination/domain implementation, not a recursive resolver or DNS protocol implementation. No stage currently owns production DNS state or network I/O.
+
+## Native DNS cache 0.3
+
+`MemoryCache` is the first concrete implementation behind the core Cache contract. Cache keys normalize DNS names case-insensitively, preserve question type/class, and partition entries by trimmed ClientID so one client partition cannot read another partition's cached result. Only successful results with records and non-zero TTLs are stored.
+
+Entries expire at the minimum record TTL. Returned record TTLs age with elapsed time, expired entries are removed on lookup, caller-owned record slices are defensively copied on insertion and lookup, cancelled contexts fail immediately, and bounded caches evict the oldest stored entry deterministically when inserting a new key at capacity. A zero capacity means unbounded Development capacity; negative capacity is rejected.
+
+The cache is in-memory and process-local only. It is not persistent, distributed, DNSSEC-aware, production-sized, or connected to DNS wire traffic.
 
 ## Planned runtime layers
 
