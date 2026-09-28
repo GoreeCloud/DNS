@@ -20,10 +20,10 @@ type cacheKey struct {
 }
 
 type cacheEntry struct {
-	result     Result
-	storedAt   time.Time
-	expiresAt  time.Time
-	sequence   uint64
+	result    Result
+	storedAt  time.Time
+	expiresAt time.Time
+	sequence  uint64
 }
 
 type MemoryCache struct {
