@@ -36,6 +36,8 @@ REQUIRED = (
     "internal/dnscore/pipeline_test.go",
     ".github/workflows/ci.yml",
     ".github/workflows/vulnerability.yml",
+    ".github/workflows/repository-governance.yml",
+    "scripts/validate_repository_governance.py",
 )
 
 SYSTEMS = (
