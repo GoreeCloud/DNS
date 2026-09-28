@@ -2,7 +2,7 @@
 
 ## Status
 
-Development architecture baseline. The current executable source is intentionally limited to a loopback-only operational control-plane foundation. It does not listen for DNS traffic and does not implement recursive, forwarding, authoritative, filtering, DHCP, encrypted-DNS, or policy behavior.
+Development architecture baseline. The current source includes a loopback-only operational control-plane foundation plus a first-party in-process request pipeline. It does not listen for DNS traffic and does not implement concrete recursive networking, authoritative-zone storage, cache storage, filtering catalogs, DHCP, encrypted-DNS transports, or production policy enforcement.
 
 ## Current source boundary
 
@@ -13,9 +13,17 @@ Development 0.1 contains:
 - `/healthz` and `/readyz`;
 - bounded HTTP timeouts and header size;
 - graceful shutdown;
-- automated formatting, test, vet, build, and reachable-vulnerability validation.
+- automated formatting, test, vet, build, and reachable-vulnerability validation;
+- `internal/dnscore`, which defines Request/Result records and Policy, Authority, Cache, and Resolver interfaces;
+- a deterministic pipeline ordered policy → authority → cache → resolver, with fail-closed handling of unknown policy actions and stage errors.
 
 No DNS UDP/TCP socket is opened by this foundation. No production listener, client routing, resolver authority, filtering authority, query log, credentials, zone data, DHCP state, or network configuration is changed.
+
+## Native DNS core 0.2
+
+The in-process core is deliberately independent of DNS sockets and external resolver libraries. Policy can block a request before later stages execute. Authoritative and cache hits short-circuit subsequent stages. Missing stages are rejected at construction, invalid requests are rejected before stage execution, and stage errors stop resolution rather than silently falling through. The pipeline overwrites result source attribution so callers can distinguish the authoritative stage that produced a result.
+
+This is coordination/domain implementation, not a recursive resolver or DNS protocol implementation. No stage currently owns production DNS state or network I/O.
 
 ## Planned runtime layers
 

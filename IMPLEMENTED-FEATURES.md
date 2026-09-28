@@ -10,8 +10,10 @@ The repository currently implements:
 - bounded HTTP server limits and graceful shutdown;
 - unit tests and exact-source CI;
 - reachable-vulnerability scanning;
-- architecture, security, privacy, and platform-integration baselines.
+- architecture, security, privacy, and platform-integration baselines;
+- a first-party in-process DNS request pipeline with required Policy, Authority, Cache, and Resolver stages;
+- deterministic policy → authority → cache → resolver ordering, short-circuit behavior, fail-closed unknown policy handling, and stage-error propagation.
 
 ## Product boundary
 
-No DNS-serving product feature is verified as implemented yet. The current foundation does not open DNS listeners, answer DNS queries, alter client DNS settings, or establish production or Stable status.
+The request-processing core is verified as Development source logic, but no DNS-serving product feature is verified as implemented yet. The current foundation does not open DNS listeners, answer DNS queries, alter client DNS settings, or establish production or Stable status.
