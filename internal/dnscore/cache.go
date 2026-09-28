@@ -23,12 +23,19 @@ type CacheConfig struct {
 }
 
 type CacheStats struct {
-	Entries     int
-	Hits        uint64
-	Misses      uint64
-	Stores      uint64
-	Evictions   uint64
-	Expirations uint64
+	Entries       int
+	Hits          uint64
+	Misses        uint64
+	Stores        uint64
+	Evictions     uint64
+	Expirations   uint64
+	Invalidations uint64
+}
+
+type CacheEntryInfo struct {
+	Present      bool
+	RecordCount  int
+	RemainingTTL uint32
 }
 
 type cacheKey struct {
@@ -46,16 +53,17 @@ type cacheEntry struct {
 }
 
 type MemoryCache struct {
-	mu          sync.RWMutex
-	entries     map[cacheKey]cacheEntry
-	config      CacheConfig
-	now         func() time.Time
-	sequence    uint64
-	hits        atomic.Uint64
-	misses      atomic.Uint64
-	stores      atomic.Uint64
-	evictions   atomic.Uint64
-	expirations atomic.Uint64
+	mu            sync.RWMutex
+	entries       map[cacheKey]cacheEntry
+	config        CacheConfig
+	now           func() time.Time
+	sequence      uint64
+	hits          atomic.Uint64
+	misses        atomic.Uint64
+	stores        atomic.Uint64
+	evictions     atomic.Uint64
+	expirations   atomic.Uint64
+	invalidations atomic.Uint64
 }
 
 func NewMemoryCache(maxEntries int) (*MemoryCache, error) {
@@ -181,6 +189,77 @@ func (c *MemoryCache) Put(ctx context.Context, request Request, result Result) e
 	return nil
 }
 
+func (c *MemoryCache) Inspect(ctx context.Context, request Request) (CacheEntryInfo, error) {
+	if err := ctx.Err(); err != nil {
+		return CacheEntryInfo{}, err
+	}
+	if err := request.Validate(); err != nil {
+		return CacheEntryInfo{}, err
+	}
+
+	key := makeCacheKey(request)
+	now := c.now()
+
+	c.mu.RLock()
+	entry, found := c.entries[key]
+	c.mu.RUnlock()
+	if !found {
+		return CacheEntryInfo{}, nil
+	}
+	if !now.Before(entry.expiresAt) {
+		c.mu.Lock()
+		current, currentFound := c.entries[key]
+		if !currentFound {
+			c.mu.Unlock()
+			return CacheEntryInfo{}, nil
+		}
+		if !now.Before(current.expiresAt) {
+			delete(c.entries, key)
+			c.mu.Unlock()
+			c.expirations.Add(1)
+			return CacheEntryInfo{}, nil
+		}
+		entry = current
+		c.mu.Unlock()
+	}
+
+	return CacheEntryInfo{
+		Present:      true,
+		RecordCount:  len(entry.result.Records),
+		RemainingTTL: remainingTTL(entry.expiresAt, now),
+	}, nil
+}
+
+func (c *MemoryCache) Invalidate(ctx context.Context, request Request) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	if err := request.Validate(); err != nil {
+		return false, err
+	}
+
+	key := makeCacheKey(request)
+	now := c.now()
+
+	c.mu.Lock()
+	entry, found := c.entries[key]
+	if !found {
+		c.mu.Unlock()
+		return false, nil
+	}
+	if !now.Before(entry.expiresAt) {
+		delete(c.entries, key)
+		c.mu.Unlock()
+		c.expirations.Add(1)
+		return false, nil
+	}
+	delete(c.entries, key)
+	c.mu.Unlock()
+
+	c.invalidations.Add(1)
+	return true, nil
+}
+
 func (c *MemoryCache) Flush() {
 	c.mu.Lock()
 	clear(c.entries)
@@ -195,12 +274,13 @@ func (c *MemoryCache) Len() int {
 
 func (c *MemoryCache) Stats() CacheStats {
 	return CacheStats{
-		Entries:     c.Len(),
-		Hits:        c.hits.Load(),
-		Misses:      c.misses.Load(),
-		Stores:      c.stores.Load(),
-		Evictions:   c.evictions.Load(),
-		Expirations: c.expirations.Load(),
+		Entries:       c.Len(),
+		Hits:          c.hits.Load(),
+		Misses:        c.misses.Load(),
+		Stores:        c.stores.Load(),
+		Evictions:     c.evictions.Load(),
+		Expirations:   c.expirations.Load(),
+		Invalidations: c.invalidations.Load(),
 	}
 }
 
@@ -256,6 +336,14 @@ func applyTTLBounds(records []Record, minTTL, maxTTL uint32) {
 		}
 		records[i].TTL = ttl
 	}
+}
+
+func remainingTTL(expiresAt, now time.Time) uint32 {
+	remaining := expiresAt.Sub(now)
+	if remaining <= 0 {
+		return 0
+	}
+	return uint32(math.Ceil(remaining.Seconds()))
 }
 
 func ageResult(result Result, elapsed time.Duration) Result {
