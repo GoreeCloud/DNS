@@ -13,7 +13,7 @@ The repository currently implements:
 - architecture, security, privacy, and platform-integration baselines;
 - a first-party in-process DNS request pipeline with required Policy, Authority, Cache, and Resolver stages;
 - deterministic policy → authority → cache → resolver ordering, short-circuit behavior, fail-closed unknown policy handling, and stage-error propagation;
-- a process-local in-memory cache with client-partitioned keys, name normalization, minimum-TTL expiry, record TTL aging, configurable minimum/maximum TTL clamps, bounded deterministic eviction, flush support, context cancellation, copy isolation, and privacy-safe aggregate hit/miss/store/eviction/expiration statistics.
+- a process-local in-memory cache with client-partitioned keys, name normalization, minimum-TTL expiry, record TTL aging, configurable minimum/maximum TTL clamps, bounded deterministic eviction, flush support, exact-key presence/count/remaining-TTL inspection, exact-partition selective invalidation, context cancellation, copy isolation, and privacy-safe aggregate hit/miss/store/eviction/expiration/invalidation statistics.
 
 ## Product boundary
 
