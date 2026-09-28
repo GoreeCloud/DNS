@@ -66,7 +66,7 @@ The full behavioral specification is maintained in `PROJECT-SPECIFICATIONS.md`.
 - Prefetch and popular-record prefetch.
 - Persistent cache where appropriate.
 - Serve-stale.
-- Selective invalidation and cache inspection.
+- Broader authorized cache administration beyond the implemented in-process exact-key metadata inspection and selective invalidation, including any future API/UI, audit, enumeration, or bulk operations only with explicit privacy and authorization controls.
 - Concurrent resolution and latency-aware upstream selection.
 
 ## DHCP and Local Network Integration
