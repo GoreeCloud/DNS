@@ -11,7 +11,7 @@ The current repository provides a bounded Development service foundation:
 - automated formatting, test, vet, build, and vulnerability validation;
 - repository-local architecture, security, privacy, and platform-integration boundaries;
 - non-network request coordination across Policy, Authority, Cache, and Resolver contracts with deterministic ordering and fail-closed error behavior;
-- process-local TTL-aware DNS result caching with client partitioning, bounded capacity, deterministic eviction, and defensive copy isolation.
+- process-local TTL-aware DNS result caching with client partitioning, bounded capacity, configurable minimum/maximum TTL clamps, deterministic eviction, defensive copy isolation, and aggregate-only cache statistics.
 
 ## DNS capability boundary
 
