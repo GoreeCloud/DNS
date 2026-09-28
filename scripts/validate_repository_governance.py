@@ -150,6 +150,7 @@ def main() -> int:
             errors += 1
 
     cache_tests = (ROOT / "internal/dnscore/cache_test.go").read_text(encoding="utf-8")
+    cache_tests += "\n" + (ROOT / "internal/dnscore/cache_controls_test.go").read_text(encoding="utf-8")
     for marker in CACHE_TESTS:
         if marker not in cache_tests:
             fail(f"DNS memory-cache tests are missing: {marker}")
