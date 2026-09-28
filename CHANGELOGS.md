@@ -22,3 +22,12 @@ This changelog records verified changes to the **current** `GoreeCloud/DNS` repo
 - Rebuilt repository-native current-state documentation for the recreated repository lineage.
 - Established separate project specification, project record, implemented-feature, planned-feature, capability, competitive-objective, benefit, and changelog records.
 - Preserved predecessor implementation and Platform Contract history as historical evidence only.
+
+
+### Drive project-specification migration reconciliation
+
+- Migrated and normalized the active `Project Specification — DNS.docx` into repository-local `PROJECT-SPECIFICATIONS.md`.
+- Preserved predecessor implementation milestones in `PROJECT-RECORD.md` instead of representing them as current recreated-repository implementation.
+- Preserved the September 27 owner-supplied capability expansion as cumulative target scope.
+- Migrated the GoreeCloud Beacon capability taxonomy into `BEACON.md`.
+- Recorded that connected Drive and GitHub searches did not expose a recoverable predecessor source archive; local/offline recovery remains unresolved rather than assumed absent.

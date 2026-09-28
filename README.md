@@ -19,8 +19,9 @@ The product is intended to combine recursive resolution, authoritative DNS, encr
 
 - [Project specifications](PROJECT-SPECIFICATIONS.md) — authoritative target product specification.
 - [Project record](PROJECT-RECORD.md) — current repository state and historical lineage boundary.
+- [Beacon capability taxonomy](BEACON.md) — DNS-owned feature-family vocabulary and authority boundaries.
 - [Implemented features](IMPLEMENTED-FEATURES.md) — verified current product functionality.
-- [Planned features](PLANNED-FEATURES.md) — intended product capability backlog.
+- [Planned features](PLANNED-FEATURES.md) — intended product capability backlog, derived from the reconciled project specification.
 - [Capabilities](CAPABILITIES.md) — current verified capability inventory.
 - [Competitive objectives](COMPETITIVE-OBJECTIVES.md) — benchmark and differentiation objectives.
 - [Benefits](BENEFITS.md) — current and intended product value with status boundaries.
