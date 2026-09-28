@@ -4,6 +4,18 @@ This changelog records verified changes to the **current** `GoreeCloud/DNS` repo
 
 ## 2026-09-27
 
+### Native DNS Cache Administration 0.5 candidate
+
+- Added exact-key `MemoryCache.Inspect` for a caller-supplied DNS question/client partition.
+- Inspection returns only presence, record count, and remaining TTL; it does not enumerate cache keys, expose cached record data or client identifiers, or increment normal hit/miss counters.
+- Added exact-key `MemoryCache.Invalidate` with client-partition isolation.
+- Missing entries are unchanged; expired entries are cleaned and counted as expirations rather than successful invalidations.
+- Added aggregate invalidation counting without query or client detail.
+- Added deterministic tests for privacy-minimized inspection, partition isolation, expiry cleanup, selective invalidation, missing/expired behavior, cancellation, and invalid requests.
+- Extended repository governance to require the cache-administration source contract and tests.
+- No administrative network API, authentication/authorization surface, cache enumeration, DNS listener, negative caching, persistent/distributed cache, recursive network resolver, production traffic, or production authority is introduced.
+
+
 ### Native DNS Cache Controls 0.4 candidate
 
 - Added `CacheConfig` with bounded-entry and optional minimum/maximum TTL controls.
