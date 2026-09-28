@@ -34,6 +34,8 @@ REQUIRED = (
     "internal/config/config_test.go",
     "internal/dnscore/pipeline.go",
     "internal/dnscore/pipeline_test.go",
+    "internal/dnscore/cache.go",
+    "internal/dnscore/cache_test.go",
     ".github/workflows/ci.yml",
     ".github/workflows/vulnerability.yml",
     ".github/workflows/repository-governance.yml",
@@ -62,6 +64,29 @@ CORE_MARKERS = (
     "p.cache.Lookup",
     "p.resolver.Resolve",
     "ErrPolicyAction",
+)
+
+CACHE_MARKERS = (
+    "type MemoryCache struct",
+    "func NewMemoryCache(",
+    "func (c *MemoryCache) Lookup(",
+    "func (c *MemoryCache) Put(",
+    "func (c *MemoryCache) Flush(",
+    "minimumTTL",
+    "evictOldestLocked",
+    "clientID:",
+)
+
+CACHE_TESTS = (
+    "TestNewMemoryCacheRejectsNegativeCapacity",
+    "TestMemoryCacheNormalizesQuestionName",
+    "TestMemoryCachePartitionsByClientID",
+    "TestMemoryCacheExpiresAtMinimumTTLAndAgesRecords",
+    "TestMemoryCacheDoesNotStoreZeroTTLOrNonSuccessResults",
+    "TestMemoryCacheEvictsOldestEntryAtCapacity",
+    "TestMemoryCacheCopiesCallerOwnedRecords",
+    "TestMemoryCacheFlush",
+    "TestMemoryCacheHonorsCancelledContext",
 )
 
 CORE_TESTS = (
@@ -105,6 +130,18 @@ def main() -> int:
     for marker in CORE_TESTS:
         if marker not in tests:
             fail(f"DNS core pipeline tests are missing: {marker}")
+            errors += 1
+
+    cache = (ROOT / "internal/dnscore/cache.go").read_text(encoding="utf-8")
+    for marker in CACHE_MARKERS:
+        if marker not in cache:
+            fail(f"DNS memory cache is missing required marker: {marker!r}")
+            errors += 1
+
+    cache_tests = (ROOT / "internal/dnscore/cache_test.go").read_text(encoding="utf-8")
+    for marker in CACHE_TESTS:
+        if marker not in cache_tests:
+            fail(f"DNS memory-cache tests are missing: {marker}")
             errors += 1
 
     ignored = {
