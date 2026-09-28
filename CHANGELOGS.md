@@ -4,6 +4,15 @@ This changelog records verified changes to the **current** `GoreeCloud/DNS` repo
 
 ## 2026-09-27
 
+### Development service foundation
+
+- Added the first executable Go source foundation for the recreated repository.
+- Added loopback-only operational configuration, health/readiness endpoints, bounded HTTP server limits, and graceful shutdown.
+- Added unit tests plus exact-source formatting, test, vet, build, and reachable-vulnerability CI.
+- Added architecture, security, privacy, Platform Contract, and nine-system integration baselines.
+- No DNS listener or production/Stable claim is established by this foundation.
+
+
 ### Current repository initialization
 
 - Current `GoreeCloud/DNS` repository initialized with repository ID `1391515788`.
