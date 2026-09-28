@@ -39,6 +39,12 @@ The cache is in-memory and process-local only. It is not persistent, distributed
 
 `CacheStats` exposes only aggregate entry, hit, miss, store, eviction, and expiration counts. It contains no query names, record data, client identifiers, addresses, or raw errors. The counters are process-local operational evidence and are not wired to external telemetry or persistence.
 
+## Native DNS cache administration 0.5
+
+`MemoryCache.Inspect` provides exact-key Development inspection for a caller-supplied DNS question and client partition. It returns only whether that exact entry is present, its record count, and its remaining cache TTL. It does not enumerate cache keys, reveal cached record data, return client identifiers, or increment normal lookup hit/miss counters. Expired entries encountered by inspection are removed and counted as expirations.
+
+`MemoryCache.Invalidate` removes only the exact normalized question/type/class/client-partition key supplied by the caller. Missing entries return false, expired entries are treated as expirations rather than successful administrative invalidations, and successful removals increment an aggregate invalidation counter. Neither method is exposed through an administrative network endpoint in this Development slice; authentication, authorization, audit, Privacy Shield policy, and production administration remain future requirements.
+
 ## Planned runtime layers
 
 Future implementation should preserve explicit boundaries between DNS transports, client context, policy/filtering, authoritative zones, cache, recursive/forwarding resolution, DNSSEC, privacy-minimized observability, administration APIs, and GoreeCloud platform integrations.

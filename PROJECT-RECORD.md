@@ -1,5 +1,19 @@
 # Project Record — GoreeCloud DNS
 
+## 2026-09-27 — Native DNS Cache Administration 0.5 candidate
+
+- Added exact-key cache inspection for a caller-supplied normalized DNS question and client partition.
+- Inspection exposes only entry presence, record count, and remaining TTL and does not enumerate keys or return query names, record data, client identifiers, addresses, or raw errors.
+- Inspection does not alter ordinary hit/miss counters; expired entries are cleaned and counted as expirations.
+- Added exact-key selective invalidation that cannot cross the existing client partition.
+- Missing or already expired entries are not counted as successful invalidations; successful removals increment an aggregate invalidation counter.
+- Added focused tests and repository-governance requirements.
+
+### Verification boundary
+
+This candidate is an in-process Development cache-administration primitive only. It does not expose an administrative network endpoint, define operator authentication/authorization, enumerate cache contents, add negative caching, stale serving, prefetch, persistence, synchronization, DNSSEC, DNS listeners, recursive network resolution, production observability export, client DNS changes, or production authority. Exact-head CI, vulnerability reachability, and repository-governance validation are required before source acceptance.
+
+
 ## 2026-09-27 — Native DNS Cache Controls 0.4 candidate
 
 - Added `CacheConfig` to the current-lineage `MemoryCache` for maximum-entry, minimum-TTL, and maximum-TTL controls.
