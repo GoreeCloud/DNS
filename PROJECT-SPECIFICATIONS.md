@@ -140,7 +140,7 @@ Everkeep must protect the configuration, policy definitions, custom rules, priva
 
 ## 10. Repository and Licensing
 The planned repository is:
-GoreeCloud/goreecloud-dns
+GoreeCloud/DNS
 The repository will originate from the approved AdGuard Home upstream repository.
 The fork must preserve all applicable upstream licensing, copyright notices, attribution, source-availability obligations, and other license requirements. The exact upstream license and applicable obligations must be verified and recorded when the fork is created.
 The repository must follow GoreeCloud source-control, code-structure, security-update, dependency-management, documentation, privacy, and continuous-improvement requirements.
@@ -264,7 +264,7 @@ Technology independence remains more important than preserving any particular in
 ## 18. Initial Decision Record
 Decision: Build GoreeCloud DNS as a GoreeCloud-maintained fork of AdGuard Home with a controlled fork-to-native transition strategy.
 Product Name: GoreeCloud DNS
-Repository: GoreeCloud/goreecloud-dns
+Repository: GoreeCloud/DNS
 Initial Upstream: AdGuard Home
 DNS Role: Client-facing filtering, policy enforcement, private DNS, and service discovery
 Recursive Resolver: Native GoreeCloud DNS first-party resolver engine
@@ -279,7 +279,6 @@ AdGuard Home is the initial maintained-fork engineering foundation. Unbound is a
 GoreeCloud DNS will natively provide recursive resolution, high-performance positive and negative caching, aggressive DNSSEC negative caching, configurable minimum and maximum cache TTL controls, stale-cache serving, prefetching, configurable forward zones, multiple upstream resolvers with redundancy and failover, DNSSEC validation and trust-anchor lifecycle management, query-name minimization where applicable, minimal responses, local zones and local DNS data, response-policy zones, private-address and DNS-rebinding protection, client and network access controls, multi-threaded processing, partitioned or sharded caches, comprehensive runtime statistics, authenticated runtime administrative controls, interface and query restrictions, privilege separation where supported, and resolver hardening.
 The target request path is: Approved Client → GoreeCloud DNS listener → client and access policy → local/private DNS and policy evaluation → cache → recursive or forward resolver → DNSSEC validation → response policy → client response. Every stage is part of the GoreeCloud DNS runtime and uses one configuration, administration, observability, privacy, security, backup, release, and recovery lifecycle.
 The migration will be incremental. GoreeCloud DNS will preserve inherited behavior while the native resolver subsystem is implemented behind explicit internal interfaces. Native resolver capabilities will then be validated for correctness, feature parity, DNSSEC behavior, cache performance, stale-cache behavior, upstream failover, privacy, access control, concurrency, observability, runtime administration, restart and recovery behavior, configuration migration, and rollback. Only after explicit acceptance will the separate AdGuard Home and Unbound production services be retired.
-Initial source implementation status: draft pull request #3 now establishes the single-service first-party resolver capability contract, removes the previously introduced separate Unbound backend configuration, prohibits reintroduction of a sidecar Unbound backend through fail-closed source validation, and records that production_approved remains false until executable integration and target-environment acceptance are complete.
 
 ## 20. Integrated First-Party DNS Platform Capability Set
 I will expand GoreeCloud DNS beyond the resolver engine into a complete first-party DNS platform while preserving the single-service architecture. Recursive DNS, authoritative DNS, encrypted DNS, filtering, DHCP, clustering, administration, identity, automation, observability, and extensible DNS processing will be owned by GoreeCloud DNS rather than delegated to permanent external DNS products.
@@ -292,7 +291,6 @@ High-availability requirements include multi-instance clustering, centralized co
 Administration and identity requirements include a browser-based administration console, comprehensive HTTP API, multiple administrative users, role-based access control, scoped API tokens, TOTP two-factor authentication, and OIDC single sign-on. Runtime administration must support safe configuration reloads, cache operations, statistics, zone management, upstream/resolver controls, service health, and other approved management functions.
 Observability requirements include configurable detailed DNS query logging, audit logging, runtime statistics, dashboards, health information, metrics, resolver and authoritative latency, cache behavior, DNSSEC outcomes, forwarding and recursion health, failure information, DHCP state, and integration with approved GoreeCloud monitoring systems. Privacy-by-default controls must allow sensitive query data to be minimized, redacted, retained for limited periods, or disabled according to operational need.
 The application framework must expose controlled extension points for advanced blocking, split-horizon processing, geolocation-based responses, DNS64, DNS rebinding protection, advanced forwarding, and custom DNS processing logic. Extensions must execute within explicit security, privacy, resource, policy, and observability boundaries and must not bypass core DNS safeguards.
-Draft pull request #3 now records these capabilities in resolver/capabilities.json schema version 2, expands the first-party DNS platform architecture documentation, and fails closed if required capability declarations are removed or a separate Unbound backend is reintroduced. This remains an implementation contract and staged migration blueprint rather than a claim that every native subsystem is already production-complete.
 
 ## 21. Native Subsystem and Configuration Architecture
 I will implement the integrated GoreeCloud DNS platform as one service with explicit internal subsystem boundaries rather than as a collection of permanent external DNS sidecars. The source-controlled subsystem contract defines listener, identity and policy, query pipeline, filtering, authoritative DNS, cache, recursive resolver, DHCP, clustering, administration, observability, configuration, runtime security, and extension responsibilities.
