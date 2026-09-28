@@ -518,3 +518,11 @@ Owner-directed requirements recorded in the authoritative project specification.
 ### Recovery-Sweep Status
 
 Connected GoreeCloud Drive searches and GoreeCloud GitHub-wide searches did not expose a recoverable source archive, branch, commit object, or mirror for the predecessor DNS repository. The repository-namespace migration record shows `GoreeCloud/goreecloud-dns → GoreeCloud/dns` was still in Planned state on September 18, 2026 and does not record a DNS-specific mirror-backup path. This does **not** prove that no local/offline mirror exists; local owner-device storage is outside the connected tool boundary. Source recovery therefore remains open and must precede any claim that predecessor code is permanently unavailable.
+
+
+### Implementation-State Statements Normalized From the Drive Specification
+
+The following statements appeared inside otherwise normative sections of the former Drive specification. They are preserved here as predecessor-repository history instead of remaining in the current normative specification:
+
+- Initial source implementation status: draft pull request #3 now establishes the single-service first-party resolver capability contract, removes the previously introduced separate Unbound backend configuration, prohibits reintroduction of a sidecar Unbound backend through fail-closed source validation, and records that production_approved remains false until executable integration and target-environment acceptance are complete.
+- Draft pull request #3 now records these capabilities in resolver/capabilities.json schema version 2, expands the first-party DNS platform architecture documentation, and fails closed if required capability declarations are removed or a separate Unbound backend is reintroduced. This remains an implementation contract and staged migration blueprint rather than a claim that every native subsystem is already production-complete.
