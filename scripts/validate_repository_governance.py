@@ -34,6 +34,8 @@ REQUIRED = (
     "internal/config/config_test.go",
     "internal/dnscore/pipeline.go",
     "internal/dnscore/pipeline_test.go",
+    "internal/dnscore/authority.go",
+    "internal/dnscore/authority_test.go",
     "internal/dnscore/cache.go",
     "internal/dnscore/cache_test.go",
     "internal/dnscore/cache_controls_test.go",
@@ -66,6 +68,28 @@ CORE_MARKERS = (
     "p.cache.Lookup",
     "p.resolver.Resolve",
     "ErrPolicyAction",
+)
+
+AUTHORITY_MARKERS = (
+    "type MemoryAuthority struct",
+    "func NewMemoryAuthority(",
+    "func (a *MemoryAuthority) Lookup(",
+    "func (a *MemoryAuthority) Put(",
+    "func (a *MemoryAuthority) Delete(",
+    "func (a *MemoryAuthority) Flush(",
+    "ErrInvalidAuthorityResult",
+    'key.clientID != ""',
+    'result.Source = ""',
+)
+
+AUTHORITY_TESTS = (
+    "TestMemoryAuthorityGlobalAndClientOverridePrecedence",
+    "TestMemoryAuthorityDeleteIsExactPartitionOnly",
+    "TestMemoryAuthorityCopiesCallerOwnedRecordsAndClearsSource",
+    "TestMemoryAuthorityRejectsInvalidResults",
+    "TestMemoryAuthorityAllowsZeroTTLRecords",
+    "TestMemoryAuthorityFlush",
+    "TestMemoryAuthorityHonorsCancelledContextAndInvalidRequest",
 )
 
 CACHE_MARKERS = (
@@ -152,6 +176,18 @@ def main() -> int:
     for marker in CORE_TESTS:
         if marker not in tests:
             fail(f"DNS core pipeline tests are missing: {marker}")
+            errors += 1
+
+    authority = (ROOT / "internal/dnscore/authority.go").read_text(encoding="utf-8")
+    for marker in AUTHORITY_MARKERS:
+        if marker not in authority:
+            fail(f"DNS memory authority is missing required marker: {marker!r}")
+            errors += 1
+
+    authority_tests = (ROOT / "internal/dnscore/authority_test.go").read_text(encoding="utf-8")
+    for marker in AUTHORITY_TESTS:
+        if marker not in authority_tests:
+            fail(f"DNS memory-authority tests are missing: {marker}")
             errors += 1
 
     cache = (ROOT / "internal/dnscore/cache.go").read_text(encoding="utf-8")
