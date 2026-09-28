@@ -36,6 +36,7 @@ REQUIRED = (
     "internal/dnscore/pipeline_test.go",
     "internal/dnscore/cache.go",
     "internal/dnscore/cache_test.go",
+    "internal/dnscore/cache_controls_test.go",
     ".github/workflows/ci.yml",
     ".github/workflows/vulnerability.yml",
     ".github/workflows/repository-governance.yml",
@@ -68,6 +69,11 @@ CORE_MARKERS = (
 
 CACHE_MARKERS = (
     "type MemoryCache struct",
+    "type CacheConfig struct",
+    "type CacheStats struct",
+    "func NewMemoryCacheWithConfig(",
+    "func (c *MemoryCache) Stats(",
+    "ErrInvalidCacheTTLRange",
     "func NewMemoryCache(",
     "func (c *MemoryCache) Lookup(",
     "func (c *MemoryCache) Put(",
@@ -87,6 +93,11 @@ CACHE_TESTS = (
     "TestMemoryCacheCopiesCallerOwnedRecords",
     "TestMemoryCacheFlush",
     "TestMemoryCacheHonorsCancelledContext",
+    "TestNewMemoryCacheWithConfigRejectsInvalidTTLRange",
+    "TestMemoryCacheAppliesTTLBoundsBeforeExpiry",
+    "TestMemoryCacheTTLBoundsDoNotMakeZeroTTLsCacheable",
+    "TestMemoryCacheStatsAreAggregateOnly",
+    "TestMemoryCacheOverwriteDoesNotCountAsEviction",
 )
 
 CORE_TESTS = (
@@ -139,6 +150,7 @@ def main() -> int:
             errors += 1
 
     cache_tests = (ROOT / "internal/dnscore/cache_test.go").read_text(encoding="utf-8")
+    cache_tests += "\n" + (ROOT / "internal/dnscore/cache_controls_test.go").read_text(encoding="utf-8")
     for marker in CACHE_TESTS:
         if marker not in cache_tests:
             fail(f"DNS memory-cache tests are missing: {marker}")

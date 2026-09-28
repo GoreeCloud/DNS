@@ -7,10 +7,29 @@ import (
 	"math"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
-var ErrInvalidCacheCapacity = errors.New("DNS cache capacity must be non-negative")
+var (
+	ErrInvalidCacheCapacity = errors.New("DNS cache capacity must be non-negative")
+	ErrInvalidCacheTTLRange = errors.New("DNS cache minimum TTL must not exceed maximum TTL")
+)
+
+type CacheConfig struct {
+	MaxEntries int
+	MinTTL     uint32
+	MaxTTL     uint32
+}
+
+type CacheStats struct {
+	Entries     int
+	Hits        uint64
+	Misses      uint64
+	Stores      uint64
+	Evictions   uint64
+	Expirations uint64
+}
 
 type cacheKey struct {
 	name     string
@@ -27,26 +46,49 @@ type cacheEntry struct {
 }
 
 type MemoryCache struct {
-	mu         sync.RWMutex
-	entries    map[cacheKey]cacheEntry
-	maxEntries int
-	now        func() time.Time
-	sequence   uint64
+	mu          sync.RWMutex
+	entries     map[cacheKey]cacheEntry
+	config      CacheConfig
+	now         func() time.Time
+	sequence    uint64
+	hits        atomic.Uint64
+	misses      atomic.Uint64
+	stores      atomic.Uint64
+	evictions   atomic.Uint64
+	expirations atomic.Uint64
 }
 
 func NewMemoryCache(maxEntries int) (*MemoryCache, error) {
-	if maxEntries < 0 {
-		return nil, fmt.Errorf("%w: %d", ErrInvalidCacheCapacity, maxEntries)
+	return NewMemoryCacheWithConfig(CacheConfig{MaxEntries: maxEntries})
+}
+
+func NewMemoryCacheWithConfig(config CacheConfig) (*MemoryCache, error) {
+	if err := validateCacheConfig(config); err != nil {
+		return nil, err
 	}
-	return newMemoryCache(maxEntries, time.Now), nil
+	return newMemoryCacheWithConfig(config, time.Now), nil
 }
 
 func newMemoryCache(maxEntries int, now func() time.Time) *MemoryCache {
+	return newMemoryCacheWithConfig(CacheConfig{MaxEntries: maxEntries}, now)
+}
+
+func newMemoryCacheWithConfig(config CacheConfig, now func() time.Time) *MemoryCache {
 	return &MemoryCache{
-		entries:    make(map[cacheKey]cacheEntry),
-		maxEntries: maxEntries,
-		now:        now,
+		entries: make(map[cacheKey]cacheEntry),
+		config:  config,
+		now:     now,
 	}
+}
+
+func validateCacheConfig(config CacheConfig) error {
+	if config.MaxEntries < 0 {
+		return fmt.Errorf("%w: %d", ErrInvalidCacheCapacity, config.MaxEntries)
+	}
+	if config.MaxTTL > 0 && config.MinTTL > config.MaxTTL {
+		return fmt.Errorf("%w: min=%d max=%d", ErrInvalidCacheTTLRange, config.MinTTL, config.MaxTTL)
+	}
+	return nil
 }
 
 func (c *MemoryCache) Lookup(ctx context.Context, request Request) (Result, bool, error) {
@@ -64,17 +106,29 @@ func (c *MemoryCache) Lookup(ctx context.Context, request Request) (Result, bool
 	entry, found := c.entries[key]
 	c.mu.RUnlock()
 	if !found {
+		c.misses.Add(1)
 		return Result{}, false, nil
 	}
 	if !now.Before(entry.expiresAt) {
 		c.mu.Lock()
-		if current, ok := c.entries[key]; ok && !now.Before(current.expiresAt) {
-			delete(c.entries, key)
+		current, currentFound := c.entries[key]
+		if !currentFound {
+			c.mu.Unlock()
+			c.misses.Add(1)
+			return Result{}, false, nil
 		}
+		if !now.Before(current.expiresAt) {
+			delete(c.entries, key)
+			c.mu.Unlock()
+			c.expirations.Add(1)
+			c.misses.Add(1)
+			return Result{}, false, nil
+		}
+		entry = current
 		c.mu.Unlock()
-		return Result{}, false, nil
 	}
 
+	c.hits.Add(1)
 	return ageResult(entry.result, now.Sub(entry.storedAt)), true, nil
 }
 
@@ -89,7 +143,15 @@ func (c *MemoryCache) Put(ctx context.Context, request Request, result Result) e
 		return nil
 	}
 
-	ttl, ok := minimumTTL(result.Records)
+	for _, record := range result.Records {
+		if record.TTL == 0 {
+			return nil
+		}
+	}
+
+	storedResult := copyResult(result)
+	applyTTLBounds(storedResult.Records, c.config.MinTTL, c.config.MaxTTL)
+	ttl, ok := minimumTTL(storedResult.Records)
 	if !ok {
 		return nil
 	}
@@ -97,23 +159,25 @@ func (c *MemoryCache) Put(ctx context.Context, request Request, result Result) e
 	now := c.now()
 	key := makeCacheKey(request)
 	entry := cacheEntry{
-		result:    copyResult(result),
+		result:    storedResult,
 		storedAt:  now,
 		expiresAt: now.Add(time.Duration(ttl) * time.Second),
 	}
 
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	c.sequence++
 	entry.sequence = c.sequence
 
-	if c.maxEntries > 0 {
-		if _, exists := c.entries[key]; !exists && len(c.entries) >= c.maxEntries {
+	if c.config.MaxEntries > 0 {
+		if _, exists := c.entries[key]; !exists && len(c.entries) >= c.config.MaxEntries {
 			c.evictOldestLocked()
+			c.evictions.Add(1)
 		}
 	}
 	c.entries[key] = entry
+	c.mu.Unlock()
+
+	c.stores.Add(1)
 	return nil
 }
 
@@ -127,6 +191,17 @@ func (c *MemoryCache) Len() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return len(c.entries)
+}
+
+func (c *MemoryCache) Stats() CacheStats {
+	return CacheStats{
+		Entries:     c.Len(),
+		Hits:        c.hits.Load(),
+		Misses:      c.misses.Load(),
+		Stores:      c.stores.Load(),
+		Evictions:   c.evictions.Load(),
+		Expirations: c.expirations.Load(),
+	}
 }
 
 func (c *MemoryCache) evictOldestLocked() {
@@ -168,6 +243,19 @@ func minimumTTL(records []Record) (uint32, bool) {
 		}
 	}
 	return minimum, len(records) > 0
+}
+
+func applyTTLBounds(records []Record, minTTL, maxTTL uint32) {
+	for i := range records {
+		ttl := records[i].TTL
+		if minTTL > 0 && ttl < minTTL {
+			ttl = minTTL
+		}
+		if maxTTL > 0 && ttl > maxTTL {
+			ttl = maxTTL
+		}
+		records[i].TTL = ttl
+	}
 }
 
 func ageResult(result Result, elapsed time.Duration) Result {

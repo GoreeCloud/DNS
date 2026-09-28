@@ -62,7 +62,7 @@ The full behavioral specification is maintained in `PROJECT-SPECIFICATIONS.md`.
 ## Cache and Resilience
 
 - Positive and negative caching.
-- Configurable TTL policy and cache sizing.
+- Advanced cache TTL policy beyond the implemented entry limit and minimum/maximum TTL clamps, including negative/aggressive-negative behavior where response semantics safely support it.
 - Prefetch and popular-record prefetch.
 - Persistent cache where appropriate.
 - Serve-stale.

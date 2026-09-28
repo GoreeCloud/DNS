@@ -12,4 +12,4 @@ Privacy Shield integration and target-environment validation are required before
 
 ## Current telemetry
 
-Development 0.1 emits only process-level startup and error logging. It has no request-logging middleware and no DNS query telemetry.
+Development 0.1 emits only process-level startup and error logging. It has no request-logging middleware and no DNS query telemetry. The in-process `MemoryCache` maintains aggregate entry/hit/miss/store/eviction/expiration counters only; its `CacheStats` surface contains no query names, record data, client identifiers, addresses, or raw errors, and is not wired to external telemetry.

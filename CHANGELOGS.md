@@ -4,6 +4,17 @@ This changelog records verified changes to the **current** `GoreeCloud/DNS` repo
 
 ## 2026-09-27
 
+### Native DNS Cache Controls 0.4 candidate
+
+- Added `CacheConfig` with bounded-entry and optional minimum/maximum TTL controls.
+- Invalid negative capacity and inverted TTL ranges fail closed.
+- Zero-TTL records remain non-cacheable even when a minimum TTL is configured.
+- Added process-local aggregate cache counters for entries, hits, misses, stores, evictions, and expirations without query names, client identifiers, record data, or raw errors.
+- Added deterministic tests for TTL-range rejection, TTL clamping/expiry, zero-TTL preservation, aggregate statistics, and overwrite-versus-eviction behavior.
+- Extended repository governance to require the cache-control source contract and tests.
+- No DNS listener, persistent/distributed cache, negative-cache semantics, recursive network resolver, DNSSEC validation, production traffic, or production authority is introduced.
+
+
 ### Native DNS Cache 0.3 candidate
 
 - Added a concrete in-memory implementation of the native DNS Cache contract.

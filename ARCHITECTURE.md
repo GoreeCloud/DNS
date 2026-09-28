@@ -33,6 +33,12 @@ Entries expire at the minimum record TTL. Returned record TTLs age with elapsed 
 
 The cache is in-memory and process-local only. It is not persistent, distributed, DNSSEC-aware, production-sized, or connected to DNS wire traffic.
 
+## Native DNS cache controls 0.4
+
+`CacheConfig` adds explicit Development controls for maximum entries and optional minimum/maximum TTL bounds. Invalid negative capacity and inverted TTL ranges are rejected. Zero-TTL records remain non-cacheable even when a minimum TTL is configured, preventing the control from silently converting an explicit zero lifetime into cacheable state. TTL bounds are applied before the minimum-record expiry is computed.
+
+`CacheStats` exposes only aggregate entry, hit, miss, store, eviction, and expiration counts. It contains no query names, record data, client identifiers, addresses, or raw errors. The counters are process-local operational evidence and are not wired to external telemetry or persistence.
+
 ## Planned runtime layers
 
 Future implementation should preserve explicit boundaries between DNS transports, client context, policy/filtering, authoritative zones, cache, recursive/forwarding resolution, DNSSEC, privacy-minimized observability, administration APIs, and GoreeCloud platform integrations.
