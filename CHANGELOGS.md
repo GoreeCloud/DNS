@@ -4,6 +4,16 @@ This changelog records verified changes to the **current** `GoreeCloud/DNS` repo
 
 ## 2026-09-27
 
+### Native DNS Core 0.2
+
+- Added first-party Request, Result, Record, Policy, Authority, Cache, and Resolver contracts under `internal/dnscore`.
+- Added deterministic policy → authoritative lookup → cache → resolver coordination.
+- Added fail-closed request validation, required-stage validation, unknown-policy rejection, error propagation, stage-source attribution, and result-record copy isolation.
+- Added unit tests for stage ordering, short-circuiting, invalid requests, policy blocking, unknown policy actions, resolver fallback, and stage errors.
+- Added repository-governance validation for the native core and mandatory DNS repository records.
+- No DNS wire parser, UDP/TCP DNS listener, recursive network resolver, production filtering, production authoritative zone, or cutover authority is introduced.
+
+
 ### Development service foundation
 
 - Added the first executable Go source foundation for the recreated repository.
