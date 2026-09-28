@@ -16,6 +16,6 @@ Running `go run ./cmd/goreecloud-dns` starts the Development control plane on `1
 
 ## Native core
 
-The repository includes an in-process request pipeline under `internal/dnscore` plus a process-local `MemoryCache` implementation. They are exercised only through source/tests at this stage and are not wired to network traffic. The cache is ephemeral and is cleared when the process exits. Source callers may configure entry capacity and minimum/maximum TTL clamps, and may read aggregate hit/miss/store/eviction/expiration counters; there is no administrative cache endpoint yet.
+The repository includes an in-process request pipeline under `internal/dnscore` plus a process-local `MemoryCache` implementation. They are exercised only through source/tests at this stage and are not wired to network traffic. The cache is ephemeral and is cleared when the process exits. Source callers may configure entry capacity and minimum/maximum TTL clamps, inspect a caller-supplied exact cache key for presence/record-count/remaining-TTL metadata, selectively invalidate that exact client-partitioned key, and read aggregate hit/miss/store/eviction/expiration/invalidation counters. There is no administrative cache network endpoint yet.
 
 No production DNS listener, client configuration, filtering policy, resolver cutover, or Stable operation is available from this Development milestone.
