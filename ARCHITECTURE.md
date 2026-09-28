@@ -45,6 +45,14 @@ The cache is in-memory and process-local only. It is not persistent, distributed
 
 `MemoryCache.Invalidate` removes only the exact normalized question/type/class/client-partition key supplied by the caller. Missing entries return false, expired entries are treated as expirations rather than successful administrative invalidations, and successful removals increment an aggregate invalidation counter. Neither method is exposed through an administrative network endpoint in this Development slice; authentication, authorization, audit, Privacy Shield policy, and production administration remain future requirements.
 
+## Native local authority 0.6
+
+`MemoryAuthority` is the first concrete implementation behind the core Authority contract. It maps a normalized request name/type/class plus optional client partition to a complete successful `Result`. A client-scoped entry takes precedence for that exact client context; when no client-scoped entry exists, lookup falls back to the same question's global entry. An entry for one non-empty client partition is never used for a different client.
+
+Insertion validates the request and requires a successful result with at least one structurally valid record. The authority defensively copies record slices and clears caller-supplied source attribution so pipeline source ownership remains authoritative. Unlike cache storage, zero-TTL authoritative records are permitted because TTL is response metadata rather than an in-memory authority lifetime. Delete removes only the exact partition supplied; it does not remove a global fallback.
+
+This is a process-local Development authority map, not an authoritative zone engine. It has no DNS listener, zone ownership/apex/SOA semantics, wildcard processing, delegation, transfer/NOTIFY, dynamic update protocol, persistence, DNSSEC signing, catalog synchronization, or production client-identity trust. `ClientID` is an opaque caller-provided partition in this Development model and must not be treated as authenticated identity or authorization.
+
 ## Planned runtime layers
 
 Future implementation should preserve explicit boundaries between DNS transports, client context, policy/filtering, authoritative zones, cache, recursive/forwarding resolution, DNSSEC, privacy-minimized observability, administration APIs, and GoreeCloud platform integrations.
