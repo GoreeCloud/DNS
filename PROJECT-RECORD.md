@@ -1,5 +1,18 @@
 # Project Record — GoreeCloud DNS
 
+## 2026-09-27 — Native DNS Core 0.2 candidate
+
+- Added `internal/dnscore` as the first current-lineage DNS-domain implementation beyond the operational service shell.
+- Defined typed Request, Result, Record, Policy, Authority, Cache, and Resolver contracts without introducing DNS wire parsing or network I/O.
+- Implemented deterministic processing in the order policy → authoritative lookup → cache → resolver.
+- Policy blocks short-circuit later stages; authoritative and cache hits short-circuit lower-authority stages; invalid requests, missing stages, unknown policy actions, and stage errors fail closed.
+- Added unit tests for positive and negative stage behavior and repository-governance validation for the core and mandatory repository records.
+
+### Verification boundary
+
+This candidate is an in-process Development coordination layer only. It does not answer DNS packets, bind port 53, perform recursive network resolution, persist cache or zones, enforce production filtering, validate DNSSEC, change client DNS configuration, or transfer production authority. Exact-head CI, vulnerability reachability, and repository-governance validation are required before source acceptance.
+
+
 ## 2026-09-27 — Development service foundation established
 
 - Added the first executable source foundation for the recreated `GoreeCloud/DNS` repository.
