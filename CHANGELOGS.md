@@ -4,6 +4,18 @@ This changelog records verified changes to the **current** `GoreeCloud/DNS` repo
 
 ## 2026-09-27
 
+### Native Local Authority 0.6 candidate
+
+- Added `MemoryAuthority` as the first concrete implementation of the native DNS Authority contract.
+- Added normalized exact-request keys with global default results and client-scoped overrides; a client override takes precedence only for that client, while other clients continue using the global result.
+- Added exact-partition deletion, full flush, and entry count for controlled Development use.
+- Added fail-closed result validation, defensive record-slice copies, and clearing of caller-supplied source attribution.
+- Preserved zero-TTL authoritative records because authoritative TTL is response metadata, not authority-store lifetime.
+- Added deterministic tests for global/override precedence, client isolation, deletion behavior, copy isolation/source clearing, invalid results, zero-TTL records, flush, cancellation, and invalid requests.
+- Extended repository governance to require the local-authority source and negative-path tests.
+- No authoritative zone engine, DNS listener, zone transfer/NOTIFY, dynamic update protocol, persistence, DNSSEC signing, authenticated client identity, production traffic, or production authority is introduced.
+
+
 ### Native DNS Cache Administration 0.5 candidate
 
 - Added exact-key `MemoryCache.Inspect` for a caller-supplied DNS question/client partition.
