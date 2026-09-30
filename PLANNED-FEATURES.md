@@ -18,6 +18,7 @@ The full behavioral specification is maintained in `PROJECT-SPECIFICATIONS.md`.
 
 ## Authoritative DNS
 
+- Full authoritative zone serving beyond the implemented process-local exact-request `MemoryAuthority`, including governed zone ownership, persistence, protocol serving, authenticated administration, and production acceptance.
 - Primary and secondary authoritative zones.
 - Catalog zones.
 - AXFR and IXFR.

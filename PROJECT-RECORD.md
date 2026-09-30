@@ -1,5 +1,20 @@
 # Project Record — GoreeCloud DNS
 
+## 2026-09-27 — Native Local Authority 0.6 candidate
+
+- Added `internal/dnscore/authority.go` as the first concrete Authority implementation in the recreated current lineage.
+- Exact normalized name/type/class requests can resolve from a global process-local result or a client-scoped override.
+- Client-scoped results take precedence only for the matching client partition; a different client cannot consume that override.
+- Deleting a client override removes only that exact partition and exposes an unchanged global fallback when one exists.
+- Authority results must be successful and contain structurally valid records; record slices are defensively copied and caller-provided source attribution is stripped.
+- Zero-TTL authoritative records remain valid and are not converted into cache semantics.
+- Added focused tests and repository-governance requirements.
+
+### Verification boundary
+
+This candidate is a process-local Development authority primitive only. It does not implement authoritative zone ownership, apex/SOA semantics, wildcards, delegations, AXFR/IXFR, NOTIFY, dynamic DNS updates, persistence, catalogs, DNSSEC signing, authenticated client identity, DNS listeners, production data migration, or production authority. Exact-head CI, vulnerability reachability, and repository-governance validation are required before source acceptance.
+
+
 ## 2026-09-27 — Native DNS Cache Administration 0.5 candidate
 
 - Added exact-key cache inspection for a caller-supplied normalized DNS question and client partition.
