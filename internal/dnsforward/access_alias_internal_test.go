@@ -4,10 +4,10 @@ import "testing"
 
 func TestAccessSetRejectsZoneAliases(t *testing.T) {
 	cases := []struct {
-		name string
+		name    string
 		allowed []string
-		denied []string
-		reject bool
+		denied  []string
+		reject  bool
 	}{
 		{"duplicate allowed aliases", []string{"fe80::1%eth0", "fe80::1%eth1"}, nil, true},
 		{"duplicate denied aliases", nil, []string{"fe80::2", "fe80::2%eth0"}, true},
@@ -18,7 +18,7 @@ func TestAccessSetRejectsZoneAliases(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := validateAccessSet(&accessListJSON{
-				AllowedClients: tc.allowed,
+				AllowedClients:    tc.allowed,
 				DisallowedClients: tc.denied,
 			})
 			if (err != nil) != tc.reject {
