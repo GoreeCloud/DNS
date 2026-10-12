@@ -164,3 +164,21 @@ func TestIsBlockedIP(t *testing.T) {
 		}
 	})
 }
+
+// TestAccessIPZones checks that interface zones cannot evade exact IP blocks
+// or cause configured allowed IPv6 clients to be unexpectedly rejected.
+func TestAccessIPZones(t *testing.T) {
+	allow, err := newAccessCtx([]string{"fe80::1"}, nil, nil)
+	require.NoError(t, err)
+	blocked, rule := allow.isBlockedIP(netip.MustParseAddr("fe80::1%eth0"))
+	assert.False(t, blocked)
+	assert.Equal(t, "fe80::1", rule)
+
+	block, err := newAccessCtx(nil, []string{"fe80::2%eth0"}, nil)
+	require.NoError(t, err)
+	blocked, rule = block.isBlockedIP(netip.MustParseAddr("fe80::2%eth1"))
+	assert.True(t, blocked)
+	assert.Equal(t, "fe80::2", rule)
+	blocked, _ = block.isBlockedIP(netip.MustParseAddr("fe80::3%eth1"))
+	assert.False(t, blocked)
+}
