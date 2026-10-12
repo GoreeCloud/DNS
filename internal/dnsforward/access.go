@@ -197,12 +197,12 @@ func (s *Server) handleAccessList(w http.ResponseWriter, r *http.Request) {
 // duplicates, we cannot compare the new stringutil.Set and []string, because
 // creating a set for a large array can be an unnecessary algorithmic complexity
 func validateAccessSet(list *accessListJSON) (err error) {
-	allowed, err := validateStrUniq(list.AllowedClients)
+	allowed, err := validateStrUniq(normalizeAccessClientKeys(list.AllowedClients))
 	if err != nil {
 		return fmt.Errorf("validating allowed clients: %w", err)
 	}
 
-	disallowed, err := validateStrUniq(list.DisallowedClients)
+	disallowed, err := validateStrUniq(normalizeAccessClientKeys(list.DisallowedClients))
 	if err != nil {
 		return fmt.Errorf("validating disallowed clients: %w", err)
 	}
@@ -221,6 +221,20 @@ func validateAccessSet(list *accessListJSON) (err error) {
 		"items in allowed and disallowed clients intersect: %s",
 		container.MapSetToString(allowed),
 	)
+}
+
+// normalizeAccessClientKeys uses the same exact-IP identity as the DNS access
+// engine while leaving CIDRs and client identifiers unchanged.
+func normalizeAccessClientKeys(entries []string) []string {
+	normalized := make([]string, len(entries))
+	for i, entry := range entries {
+		if ip, err := netip.ParseAddr(entry); err == nil {
+			normalized[i] = ip.WithZone("").String()
+		} else {
+			normalized[i] = entry
+		}
+	}
+	return normalized
 }
 
 // validateStrUniq returns an informative error if clients are not unique.
