@@ -1402,6 +1402,12 @@ func cmdlineUpdate(
 		return
 	}
 
+	// The command-line updater must obey the same fail-closed release policy.
+	if !isUpdateEnabled(ctx, l, &opts, false) {
+		l.ErrorContext(ctx, "GoreeCloud DNS binary updates require a verified release channel")
+		os.Exit(osutil.ExitCodeFailure)
+	}
+
 	// Initialize the DNS server to use the internal resolver which the updater
 	// needs to be able to resolve the update source hostname.
 	//
