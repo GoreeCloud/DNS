@@ -8,6 +8,15 @@ GoreeCloud DNS is a self-hosted, privacy-focused DNS resolver, filtering, and ne
 
 **Not verified yet:** a fully GoreeCloud-native DNS service, complete Glaze UI, GoreeCloud platform integrations, deployment, hardened security configuration, or migration from previous installations. Do not treat this branch as a production release.
 
+## Product documentation
+
+- [Beacon comprehensive product specifications](docs/PROJECT-SPECIFICATIONS.md) — proposed 34-area capability catalog, scope boundaries, and acceptance criteria.
+- [Planned features](docs/PLANNED-FEATURES.md) — proposed workstreams and verification dependencies.
+- [Implemented features](docs/IMPLEMENTED-FEATURES.md) — inherited source baseline versus demonstrated implementation.
+- [Project record](docs/PROJECT-RECORD.md) — significant project history and decisions.
+
+The Beacon catalog is a proposal; documentation alone does not establish that the described capabilities are operational.
+
 ## Development
 
 See [Fork-to-Native roadmap](docs/FORK_TO_NATIVE.md) and [upstream source provenance](UPSTREAM.md). Original upstream documentation is retained in [docs/upstream/README.md](docs/upstream/README.md). The upstream GitHub Actions configuration, including its publishing and mirroring workflows, was not imported as executable automation.
