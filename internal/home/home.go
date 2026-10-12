@@ -595,11 +595,12 @@ func isUpdateEnabled(
 	opts *options,
 	isCustomURL bool,
 ) (ok bool) {
-	if opts.disableUpdate {
-		l.DebugContext(ctx, "updates are disabled by command-line option")
+	// GoreeCloud DNS has no approved binary update channel.  Block inherited
+	// upstream release metadata regardless of its channel or CLI options.
+	// Keep the previous channel checks below for eventual controlled migration.
+	l.DebugContext(ctx, "GoreeCloud DNS inherited binary updates are disabled")
 
-		return false
-	}
+	return false
 
 	switch version.Channel() {
 	case
