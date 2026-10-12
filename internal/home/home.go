@@ -586,37 +586,21 @@ func checkPorts() (err error) {
 	return nil
 }
 
-// isUpdateEnabled returns true if the update is enabled for current
-// configuration.  It also logs the decision.  isCustomURL should be true if the
-// updater is using a custom URL.
+// isUpdateEnabled defines the GoreeCloud DNS binary update trust boundary.
+// All inherited release channels are disabled until a signed and verified
+// GoreeCloud-controlled update process is available.
 func isUpdateEnabled(
 	ctx context.Context,
 	l *slog.Logger,
 	opts *options,
 	isCustomURL bool,
 ) (ok bool) {
-	if opts.disableUpdate {
-		l.DebugContext(ctx, "updates are disabled by command-line option")
+	// GoreeCloud DNS has no approved binary update channel.  Block inherited
+	// upstream release metadata regardless of its channel or CLI options.
+	// No legacy version channel or command-line option bypasses this policy.
+	l.DebugContext(ctx, "GoreeCloud DNS inherited binary updates are disabled")
 
-		return false
-	}
-
-	switch version.Channel() {
-	case
-		version.ChannelDevelopment,
-		version.ChannelCandidate:
-		if isCustomURL {
-			l.DebugContext(ctx, "updates are enabled because custom url is used")
-		} else {
-			l.DebugContext(ctx, "updates are disabled for development and candidate builds")
-		}
-
-		return isCustomURL
-	default:
-		l.DebugContext(ctx, "updates are enabled")
-
-		return true
-	}
+	return false
 }
 
 // webConfig is a configuration structure for webAPI.
@@ -1416,6 +1400,12 @@ func cmdlineUpdate(
 ) {
 	if !opts.performUpdate {
 		return
+	}
+
+	// The command-line updater must obey the same fail-closed release policy.
+	if !isUpdateEnabled(ctx, l, &opts, false) {
+		l.ErrorContext(ctx, "GoreeCloud DNS binary updates require a verified release channel")
+		os.Exit(osutil.ExitCodeFailure)
 	}
 
 	// Initialize the DNS server to use the internal resolver which the updater
