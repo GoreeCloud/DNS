@@ -83,7 +83,18 @@ export const Footer = () => {
         <footer class={s.footer}>
             <div class={s.container}>
                 <div class={s.leftGroup}>
-                    <div class={s.copyright}>&copy; 2018–{getYear()} AdGuard Home</div>
+                    <div class={s.copyright}>
+                        &copy; {getYear()} GoreeCloud DNS
+                        {' · '}
+                        <a
+                            href="https://github.com/GoreeCloud/DNS/blob/main/UPSTREAM.md"
+                            class={cn(theme.link.link, theme.link.hoverDecoration)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Upstream credits
+                        </a>
+                    </div>
 
                     <Show when={dashboardState.dnsVersion}>
                         <Show

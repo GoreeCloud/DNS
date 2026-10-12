@@ -61,23 +61,26 @@ export const STATS_NAMES = {
     replaced_safesearch: 'enforced_save_search',
 };
 
+// Product support and release information belong to the independent GoreeCloud
+// repository.  The upstream project is credited separately in UPSTREAM.md.
 export const REPOSITORY = {
-    URL: 'https://github.com/AdguardTeam/AdGuardHome',
+    URL: 'https://github.com/GoreeCloud/DNS',
     TRACKERS_DB:
         'https://github.com/AdguardTeam/AdGuardHome/tree/master/client/src/helpers/trackers/trackers.json',
-    ISSUES: 'https://github.com/AdguardTeam/AdGuardHome/issues/new/choose',
-    RELEASE_NOTES: 'https://github.com/AdguardTeam/AdGuardHome/releases',
+    ISSUES: 'https://github.com/GoreeCloud/DNS/issues',
+    RELEASE_NOTES: 'https://github.com/GoreeCloud/DNS/releases',
 };
 
 export const CLIENT_ID_LINK = 'https://github.com/AdguardTeam/AdGuardHome/wiki/Clients#clientid';
 export const LETSENCRYPT_LINK = 'https://letsencrypt.org/';
 export const MANUAL_UPDATE_LINK =
-    'https://github.com/AdguardTeam/AdGuardHome/wiki/FAQ#manual-update';
+    'https://github.com/GoreeCloud/DNS/blob/main/docs/UPDATE_TRUST_BOUNDARY.md';
 export const PORT_53_FAQ_LINK = 'https://github.com/AdguardTeam/AdGuardHome/wiki/FAQ#bindinuse';
+// Direct source-controlled notices, never inherited tracking redirects.
 export const PRIVACY_POLICY_LINK =
-    'https://link.adtidy.org/forward.html?action=privacy&from=ui&app=home';
+    'https://github.com/GoreeCloud/DNS/blob/main/docs/PRIVACY.md';
 export const TERMS_LINK =
-    'https://link.adtidy.org/forward.html?action=terms_and_conditions&from=ui&app=home';
+    'https://github.com/GoreeCloud/DNS/blob/main/docs/SELF_HOSTING.md';
 export const UPSTREAM_CONFIGURATION_WIKI_LINK =
     'https://github.com/AdguardTeam/AdGuardHome/wiki/Configuration#upstreams';
 
