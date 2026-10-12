@@ -601,23 +601,6 @@ func isUpdateEnabled(
 	l.DebugContext(ctx, "GoreeCloud DNS inherited binary updates are disabled")
 
 	return false
-
-	switch version.Channel() {
-	case
-		version.ChannelDevelopment,
-		version.ChannelCandidate:
-		if isCustomURL {
-			l.DebugContext(ctx, "updates are enabled because custom url is used")
-		} else {
-			l.DebugContext(ctx, "updates are disabled for development and candidate builds")
-		}
-
-		return isCustomURL
-	default:
-		l.DebugContext(ctx, "updates are enabled")
-
-		return true
-	}
 }
 
 // webConfig is a configuration structure for webAPI.
