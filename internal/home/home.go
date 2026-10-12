@@ -586,9 +586,9 @@ func checkPorts() (err error) {
 	return nil
 }
 
-// isUpdateEnabled returns true if the update is enabled for current
-// configuration.  It also logs the decision.  isCustomURL should be true if the
-// updater is using a custom URL.
+// isUpdateEnabled defines the GoreeCloud DNS binary update trust boundary.
+// All inherited release channels are disabled until a signed and verified
+// GoreeCloud-controlled update process is available.
 func isUpdateEnabled(
 	ctx context.Context,
 	l *slog.Logger,
@@ -597,7 +597,7 @@ func isUpdateEnabled(
 ) (ok bool) {
 	// GoreeCloud DNS has no approved binary update channel.  Block inherited
 	// upstream release metadata regardless of its channel or CLI options.
-	// Keep the previous channel checks below for eventual controlled migration.
+	// No legacy version channel or command-line option bypasses this policy.
 	l.DebugContext(ctx, "GoreeCloud DNS inherited binary updates are disabled")
 
 	return false
