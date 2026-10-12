@@ -1,6 +1,6 @@
 # GoreeCloud DNS — Fork-to-Native execution plan
 
-**Current stage: 0, source foundation imported.** All subsequent stages are planned, not completed. This plan is subordinate to GoreeCloud governance and release gates.
+**Current stage: 1, safety and identity hardening in progress.** Stage 0 is complete. PR #2 merged the inherited update lockout and new-install query-log defaults. Native acceptance, production validation, and remaining stages are not complete. This plan is subordinate to GoreeCloud governance and release gates.
 
 ## Architecture and staged delivery
 
