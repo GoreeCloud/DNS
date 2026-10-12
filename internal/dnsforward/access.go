@@ -46,7 +46,9 @@ func processAccessClients(
 		var ip netip.Addr
 		var ipnet netip.Prefix
 		if ip, err = netip.ParseAddr(s); err == nil {
-			ips.Add(ip)
+			// An IPv6 zone identifies the local interface, not a different
+			// client for DNS access-policy purposes.
+			ips.Add(ip.WithZone(""))
 		} else if ipnet, err = netip.ParsePrefix(s); err == nil {
 			*nets = append(*nets, ipnet)
 		} else {
@@ -139,6 +141,9 @@ func (a *accessManager) isBlockedHost(host string, qt rules.RRType) (ok bool) {
 // isBlockedIP returns the status of the IP address blocking as well as the rule
 // that blocked it.
 func (a *accessManager) isBlockedIP(ip netip.Addr) (blocked bool, rule string) {
+	// Match link-local addresses consistently whether or not the incoming
+	// socket address carries an interface zone.
+	ip = ip.WithZone("")
 	blocked = true
 	ips := a.blockedIPs
 	ipnets := a.blockedNets
