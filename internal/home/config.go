@@ -324,10 +324,12 @@ var config = &configuration{
 		PortDNSOverTLS:  defaultPortTLS, // needs to be passed through to dnsproxy
 		PortDNSOverQUIC: defaultPortQUIC,
 	},
+	// Privacy-first defaults apply to new installations.  Existing YAML
+	// settings are preserved by the configuration loader.
 	QueryLog: queryLogConfig{
-		Enabled:        true,
-		FileEnabled:    true,
-		Interval:       timeutil.Duration(90 * timeutil.Day),
+		Enabled:        false,
+		FileEnabled:    false,
+		Interval:       timeutil.Duration(1 * timeutil.Day),
 		MemSize:        1000,
 		Ignored:        []string{},
 		IgnoredEnabled: false,
