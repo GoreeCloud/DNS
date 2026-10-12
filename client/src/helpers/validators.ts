@@ -1,0 +1,547 @@
+import i18next from 'i18next';
+
+import {
+    MAX_PORT,
+    R_HOST,
+    R_IPV4,
+    R_MAC,
+    R_URL_REQUIRES_PROTOCOL,
+    STANDARD_WEB_PORT,
+    UNSAFE_PORTS,
+    R_CLIENT_ID,
+    R_DOMAIN,
+    MAX_PASSWORD_LENGTH,
+    MIN_PASSWORD_LENGTH,
+    R_IPV4_SUBNET,
+    R_IPV6_SUBNET,
+} from './constants';
+
+import { ip4ToInt, isValidAbsolutePath } from './form';
+
+import { isIpInCidr, isValidCidr, isValidIpv6, parseSubnetMask } from './helpers';
+
+// Validation functions
+// If the value is valid, the validation function should return undefined.
+/**
+ * @param value {string|number}
+ * @returns {undefined|string}
+ */
+export const validateRequiredValue = (value: any) => {
+    const formattedValue = typeof value === 'string' ? value.trim() : value;
+    if (formattedValue || formattedValue === 0 || (formattedValue && formattedValue.length !== 0)) {
+        return undefined;
+    }
+    return i18next.t('form_error_required');
+};
+
+/**
+ * Checks whether a DHCP form section has any values entered.  DHCPv4 and
+ * DHCPv6 share a single react-hook-form instance, so "the user has not touched
+ * this section" is the condition both the section-aware validators and the
+ * save buttons key off.  Values coming from the server must be normalized with
+ * `getDefaultV4Values` or `getDefaultV6Values` first, since the backend
+ * reports default values even for a section that is not configured.
+ *
+ * @param {object} sectionValues Values of one DHCP form section.
+ * @returns {boolean} True if at least one value is set.
+ */
+export const isSectionFilled = (sectionValues: any) =>
+    Boolean(sectionValues) && Object.values(sectionValues).some(Boolean);
+
+/**
+ * Normalizes DHCPv4 form values coming from the server.  A lease duration that
+ * is set while the rest of the section is empty must not make the section look
+ * filled in.
+ *
+ * @param {object} v4 Values of the DHCPv4 form section.
+ * @returns {object} Normalized values of the DHCPv4 form section.
+ */
+export const getDefaultV4Values = (v4: any) => {
+    if (!v4) {
+        return v4;
+    }
+
+    const emptyForm = Object.entries(v4).every(([key, value]) => key === 'lease_duration' || value === '');
+
+    if (emptyForm) {
+        return {
+            ...v4,
+            lease_duration: undefined,
+        };
+    }
+
+    return v4;
+};
+
+/**
+ * Normalizes DHCPv6 form values coming from the server.  Unlike DHCPv4, the
+ * backend keeps the default lease duration of a DHCPv6 section that has never
+ * been configured, while the section counts as configured only when its range
+ * start is set.  Without this normalization `isSectionFilled` reports such a
+ * section as filled in, so it gets sent to the backend, which replaces the
+ * stored DHCPv6 configuration with a disabled one.
+ *
+ * @param {object} v6 Values of the DHCPv6 form section.
+ * @returns {object} Normalized values of the DHCPv6 form section.
+ */
+export const getDefaultV6Values = (v6: any) => {
+    if (!v6 || v6.range_start) {
+        return v6;
+    }
+
+    return {
+        ...v6,
+        lease_duration: undefined,
+    };
+};
+
+/**
+ * Returns the DHCP form sections that have values, leaving out the untouched
+ * ones.  The backend keeps the current configuration of a section that is
+ * omitted from the request, while an empty section is not a no-op: DHCPv4
+ * rejects it with a validation error and fails the whole request, and DHCPv6
+ * accepts it but replaces the stored server with a disabled one, silently
+ * wiping the current DHCPv6 configuration.  A section the user has not filled
+ * in must therefore never be sent.
+ *
+ * @param {object} sections DHCP form sections, e.g. `{ v4, v6 }`.
+ * @returns {object} Payload with only the filled sections.
+ */
+export const omitEmptySections = <V4, V6>(sections: { v4?: V4; v6?: V6 }) => {
+    const payload: { v4?: V4; v6?: V6 } = {};
+
+    if (isSectionFilled(sections.v4)) {
+        payload.v4 = sections.v4;
+    }
+
+    if (isSectionFilled(sections.v6)) {
+        payload.v6 = sections.v6;
+    }
+
+    return payload;
+};
+
+/**
+ * Creates a `required` validator for one DHCP form section that enforces the
+ * value only when that section has any values entered.  DHCPv4 and DHCPv6
+ * share a single react-hook-form instance, so an untouched section must not
+ * block saving the other one.
+ *
+ * @param {'v4' | 'v6'} section DHCP form section the field belongs to.
+ * @returns {Function} Validator for react-hook-form's `validate` rules.
+ */
+export const validateRequiredIfSectionFilled = (section: 'v4' | 'v6') => (value: any, allValues: any) => {
+    if (!isSectionFilled(allValues && allValues[section])) {
+        return undefined;
+    }
+
+    return validateRequiredValue(value);
+};
+
+/**
+ * Creates a `required` validator that enforces the value only when the given
+ * field of the same DHCP form section is filled.  DHCPv6 counts as configured
+ * only when its range start is set, which is also what enables the DHCPv6
+ * server on the backend, so a lease duration left at its default must not
+ * require a range.
+ *
+ * @param {'v4' | 'v6'} section DHCP form section the field belongs to.
+ * @param {string} field Name of the field that marks the section as configured.
+ * @returns {Function} Validator for react-hook-form's `validate` rules.
+ */
+export const validateRequiredIfFilled = (section: 'v4' | 'v6', field: string) => (value: any, allValues: any) => {
+    const sibling = allValues && allValues[section] && allValues[section][field];
+
+    if (!sibling) {
+        return undefined;
+    }
+
+    return validateRequiredValue(value);
+};
+
+/**
+ * @returns {undefined|string}
+ * @param _
+ * @param allValues
+ */
+export const validateIpv4RangeEnd = (_: any, allValues: any) => {
+    if (!allValues || !allValues.v4 || !allValues.v4.range_end || !allValues.v4.range_start) {
+        return undefined;
+    }
+
+    const { range_end, range_start } = allValues.v4;
+
+    if (ip4ToInt(range_end) <= ip4ToInt(range_start)) {
+        return i18next.t('greater_range_start_error');
+    }
+
+    return undefined;
+};
+
+/**
+ * @param value {string}
+ * @returns {undefined|string}
+ */
+export const validateIpv4 = (value: any) => {
+    if (value && !R_IPV4.test(value)) {
+        return i18next.t('form_error_ip4_format');
+    }
+    return undefined;
+};
+
+/**
+ * @returns {undefined|string}
+ * @param _
+ * @param allValues
+ */
+export const validateNotInRange = (value: any, allValues: any) => {
+    if (!allValues.v4) {
+        return undefined;
+    }
+
+    const { range_start, range_end } = allValues.v4;
+
+    if (range_start && validateIpv4(range_start)) {
+        return undefined;
+    }
+
+    if (range_end && validateIpv4(range_end)) {
+        return undefined;
+    }
+
+    const isAboveMin = range_start && ip4ToInt(value) >= ip4ToInt(range_start);
+    const isBelowMax = range_end && ip4ToInt(value) <= ip4ToInt(range_end);
+
+    if (isAboveMin && isBelowMax) {
+        return i18next.t('out_of_range_error', {
+            start: range_start,
+            end: range_end,
+        });
+    }
+
+    return undefined;
+};
+
+/**
+ * Validates the DHCPv4 subnet mask against the gateway.  An untouched DHCPv4
+ * section is not an error: DHCPv4 and DHCPv6 share a single react-hook-form
+ * instance, so a section the user has not filled in must not block saving the
+ * other one.
+ *
+ * @returns {undefined|string}
+ * @param _
+ * @param allValues
+ */
+export const validateGatewaySubnetMask = (_: any, allValues: any) => {
+    const v4Values = allValues && allValues.v4;
+
+    if (!isSectionFilled(v4Values)) {
+        return undefined;
+    }
+
+    if (!v4Values.subnet_mask || !v4Values.gateway_ip) {
+        return i18next.t('gateway_or_subnet_invalid');
+    }
+
+    const { subnet_mask, gateway_ip } = v4Values;
+
+    if (validateIpv4(gateway_ip)) {
+        return i18next.t('gateway_or_subnet_invalid');
+    }
+
+    return parseSubnetMask(subnet_mask) ? undefined : i18next.t('gateway_or_subnet_invalid');
+};
+
+/**
+ * @returns {undefined|string}
+ * @param value
+ * @param allValues
+ */
+export const validateIpForGatewaySubnetMask = (value: any, allValues: any) => {
+    if (!allValues || !allValues.v4 || !value || !allValues.v4.gateway_ip || !allValues.v4.subnet_mask) {
+        return undefined;
+    }
+
+    const { gateway_ip, subnet_mask } = allValues.v4;
+
+    if ((gateway_ip && validateIpv4(gateway_ip)) || (subnet_mask && validateIpv4(subnet_mask))) {
+        return undefined;
+    }
+
+    const subnetPrefix = parseSubnetMask(subnet_mask);
+
+    if (subnetPrefix === null) {
+        return undefined;
+    }
+
+    if (!isIpInCidr(value, `${gateway_ip}/${subnetPrefix}`)) {
+        return i18next.t('subnet_error');
+    }
+
+    return undefined;
+};
+
+/**
+ * @param value {string}
+ * @returns {undefined|string}
+ */
+export const validateClientId = (value: string) => {
+    if (!value) {
+        return undefined;
+    }
+    const formattedValue = value.trim();
+    // The backend parses an identifier as an IP address first, then as a MAC
+    // address, a CIDR, and finally as a ClientID, so a value like
+    // `fe80::1%eth0/64` is an address with a zone ID rather than a CIDR.
+    if (
+        formattedValue &&
+        !(
+            R_IPV4.test(formattedValue) ||
+            isValidIpv6(formattedValue) ||
+            R_MAC.test(formattedValue) ||
+            isValidCidr(formattedValue) ||
+            R_CLIENT_ID.test(formattedValue)
+        )
+    ) {
+        return i18next.t('form_error_client_id_format');
+    }
+    return undefined;
+};
+
+/**
+ * @param value {string}
+ * @returns {undefined|string}
+ */
+export const validateConfigClientId = (value: any) => {
+    if (!value) {
+        return undefined;
+    }
+    const formattedValue = value.trim();
+    if (formattedValue && !R_CLIENT_ID.test(formattedValue)) {
+        return i18next.t('form_error_client_id_format');
+    }
+    return undefined;
+};
+
+/**
+ * @param value {string}
+ * @returns {undefined|string}
+ */
+export const validateServerName = (value: any) => {
+    if (!value) {
+        return undefined;
+    }
+    const formattedValue = value ? value.trim() : value;
+    if (formattedValue && !R_DOMAIN.test(formattedValue)) {
+        return i18next.t('form_error_server_name');
+    }
+    return undefined;
+};
+
+/**
+ * @param value {string}
+ * @returns {undefined|string}
+ */
+export const validateIpv6 = (value: any) => {
+    if (value && !isValidIpv6(value)) {
+        return i18next.t('form_error_ip6_format');
+    }
+    return undefined;
+};
+
+/**
+ * @param value {string}
+ * @returns {undefined|string}
+ */
+export const validateIp = (value: any) => {
+    if (value && !R_IPV4.test(value) && !isValidIpv6(value)) {
+        return i18next.t('form_error_ip_format');
+    }
+    return undefined;
+};
+
+/**
+ * @param value {string}
+ * @returns {undefined|string}
+ */
+export const validateMac = (value: any) => {
+    if (value && !R_MAC.test(value)) {
+        return i18next.t('form_error_mac_format');
+    }
+    return undefined;
+};
+
+/**
+ * @param value {number}
+ * @returns {undefined|string}
+ */
+export const validatePort = (value: any) => {
+    if ((value || value === 0) && (value < STANDARD_WEB_PORT || value > MAX_PORT)) {
+        return i18next.t('form_error_port_range');
+    }
+    return undefined;
+};
+
+/**
+ * @param value {number}
+ * @returns {undefined|string}
+ */
+export const validateInstallPort = (value: any) => {
+    if (value < 1 || value > MAX_PORT) {
+        return i18next.t('form_error_port');
+    }
+    return undefined;
+};
+
+/**
+ * @param value {number}
+ * @returns {undefined|string}
+ */
+export const validatePortTLS = (value: any) => {
+    if (value === 0) {
+        return undefined;
+    }
+    if (value && (value < STANDARD_WEB_PORT || value > MAX_PORT)) {
+        return i18next.t('form_error_port_range');
+    }
+    return undefined;
+};
+
+/**
+ * @param value {number}
+ * @returns {undefined|string}
+ */
+export const validatePortQuic = validatePortTLS;
+
+/**
+ * @param value {number}
+ * @returns {undefined|string}
+ */
+export const validateIsSafePort = (value: any) => {
+    if (UNSAFE_PORTS.includes(value)) {
+        return i18next.t('form_error_port_unsafe');
+    }
+    return undefined;
+};
+
+/**
+ * @param value {string}
+ * @returns {undefined|string}
+ */
+export const validateDomain = (value: any) => {
+    if (value && !R_HOST.test(value)) {
+        return i18next.t('form_error_domain_format');
+    }
+    return undefined;
+};
+
+/**
+ * @param value {string}
+ * @returns {undefined|string}
+ */
+export const validateAnswer = (value: any) => {
+    if (value && !R_IPV4.test(value) && !isValidIpv6(value) && !R_HOST.test(value)) {
+        return i18next.t('form_error_answer_format');
+    }
+    return undefined;
+};
+
+/**
+ * @param value {string}
+ * @returns {undefined|string}
+ */
+export const validatePath = (value: any) => {
+    if (value && !isValidAbsolutePath(value) && !R_URL_REQUIRES_PROTOCOL.test(value)) {
+        return i18next.t('form_error_url_or_path_format');
+    }
+    return undefined;
+};
+
+/**
+ * @param cidr {string}
+ * @returns {Function}
+ */
+export const validateIpv4InCidr = (valueIp: any, allValues: any) => {
+    if (!isIpInCidr(valueIp, allValues.cidr)) {
+        return i18next.t('form_error_subnet', { ip: valueIp, cidr: allValues.cidr });
+    }
+    return undefined;
+};
+
+/**
+ * @param value {string}
+ * @returns {number}
+ */
+const utf8StringLength = (value: any) => {
+    const encoder = new TextEncoder();
+    const view = encoder.encode(value);
+
+    return view.length;
+};
+
+/**
+ * @param value {string}
+ * @returns {Function}
+ */
+export const validatePasswordLength = (value: any) => {
+    if (value) {
+        const length = utf8StringLength(value);
+        if (length < MIN_PASSWORD_LENGTH || length > MAX_PASSWORD_LENGTH) {
+            // TODO: Make the i18n clearer with regards to bytes vs. characters.
+            return i18next.t('form_error_password_length', {
+                min: MIN_PASSWORD_LENGTH,
+                max: MAX_PASSWORD_LENGTH,
+            });
+        }
+    }
+
+    return undefined;
+};
+
+/**
+ * @param value {string}
+ * @returns {Function}
+ */
+export const validateIpGateway = (value: any, allValues: any) => {
+    if (value === allValues.gatewayIp) {
+        return i18next.t('form_error_gateway_ip');
+    }
+    return undefined;
+};
+
+/**
+ * @param value {string}
+ * @returns {Function}
+ */
+export const validateIPv4Subnet = (value: any) => {
+    if (!R_IPV4_SUBNET.test(value)) {
+        return i18next.t('rate_limit_subnet_len_ipv4_error');
+    }
+    return undefined;
+};
+
+/**
+ * @param value {string}
+ * @returns {Function}
+ */
+export const validateIPv6Subnet = (value: any) => {
+    if (!R_IPV6_SUBNET.test(value)) {
+        return i18next.t('rate_limit_subnet_len_ipv6_error');
+    }
+    return undefined;
+};
+
+/**
+ * @returns {undefined|string}
+ * @param value
+ * @param allValues
+ */
+export const validatePlainDns = (value: any, allValues: any) => {
+    const { enabled } = allValues;
+
+    if (!enabled && !value) {
+        return i18next.t('encryption_plain_dns_error');
+    }
+
+    return undefined;
+};
