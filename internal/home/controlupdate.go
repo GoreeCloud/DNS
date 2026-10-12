@@ -124,6 +124,14 @@ func (web *webAPI) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	l := web.logger
 
+	// Disabling update checks must also disable the binary replacement route.
+	// The inherited release service is not a GoreeCloud release authority.
+	if web.conf.disableUpdate {
+		aghhttp.ErrorAndLog(ctx, l, r, w, http.StatusForbidden, "binary updates disabled for GoreeCloud DNS")
+
+		return
+	}
+
 	updater := web.conf.updater
 	if updater.NewVersion() == "" {
 		aghhttp.ErrorAndLog(
