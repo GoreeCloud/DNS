@@ -14,6 +14,8 @@ The existing [README](../README.md), [Fork-to-Native plan](FORK_TO_NATIVE.md) an
 
 The unmerged network-hardening candidate normalizes IPv6 interface-zone identifiers before exact allow/block IP matching, including zone-qualified configured entries. It includes scoped regression tests that exercise allowed and blocked link-local addresses with different zones. Local Go 1.27.1 `go test ./internal/dnsforward -run 'TestAccessIPZones|TestIsBlockedIP' -count=1` passed. This is not a verified production DNS deployment or full filtering-path acceptance.
 
+The same candidate advances the Go toolchain floor to security-patched Go 1.27.2. This is a build/security prerequisite rather than proof of full resolver or production runtime acceptance; validate the updated exact head before integrating.
+
 ## Verification gaps / no unwarranted completion claims
 
 The comprehensive Beacon feature catalog in [PROJECT-SPECIFICATIONS.md](PROJECT-SPECIFICATIONS.md) remains proposed and indexed in [PLANNED-FEATURES.md](PLANNED-FEATURES.md). Full independent recursion, authoritative zone hosting, DNSSEC signing, clustering, full protocol matrix, Glaze UI, GoreeCloud ecosystem interoperability and production readiness are **not verified by this inventory**.
