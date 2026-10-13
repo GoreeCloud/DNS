@@ -47,11 +47,11 @@ func validateAccessRangeOverlap(allowed, disallowed []string) error {
 // ignored for client identity, matching the runtime policy engine.
 func accessAddressRange(value string) (netip.Prefix, bool) {
 	if address, err := netip.ParseAddr(value); err == nil {
-		address = address.WithZone("")
+		address = normalizeAccessAddr(address)
 		return netip.PrefixFrom(address, address.BitLen()), true
 	}
 	if prefix, err := netip.ParsePrefix(value); err == nil {
-		return prefix.Masked(), true
+		return normalizeAccessPrefix(prefix).Masked(), true
 	}
 	return netip.Prefix{}, false
 }
