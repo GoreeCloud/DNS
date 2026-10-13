@@ -1,0 +1,18 @@
+name: GoreeCloud Private Zone
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  private-zone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.1'
+      - name: Validate private DNS name boundary
+        run: go test -count=1 ./internal/goreecloud/privatezone
