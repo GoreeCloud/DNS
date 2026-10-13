@@ -169,7 +169,8 @@ func (a *accessManager) isBlockedIP(ip netip.Addr) (blocked bool, rule string) {
 		// Remove zone before checking because prefixes stip zones.
 		//
 		// TODO(d.kolyshev):  Cover with tests.
-		if ipnet.Contains(ip) || (rawIP != ip && ipnet.Contains(rawIP)) {
+		if ipnet.Contains(ip) || (rawIP != ip && ipnet.Contains(rawIP)) ||
+			(ip.Is4() && ipnet.Contains(netip.AddrFrom16(ip.As16()))) {
 			return blocked, ipnet.String()
 		}
 	}
