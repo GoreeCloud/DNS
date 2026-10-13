@@ -26,6 +26,10 @@ service-discovery path. This source-level boundary does not authorize private
 names, filtering, split-horizon routing, public exposure, or automatic service
 publication. Scoped Go CI and runtime integration evidence are still required.
 
+## Development candidate: private-zone name matcher
+
+The isolated `internal/goreecloud/privatezone` Go module adds deterministic, label-aware private DNS suffix matching for explicit `.lan`, `.home.arpa`, and `.internal` zones and subzones. It rejects malformed names and zone configurations, avoids substring matches that could classify public domains as private, and has negative-path tests. It is **not connected to the inherited DNS runtime, VPN, or Gateway**; it grants no resolution, service-publication, routing, or policy authority. Scoped CI and runtime integration remain prerequisites.
+
 ## Verification gaps / no unwarranted completion claims
 
 The comprehensive Beacon feature catalog in [PROJECT-SPECIFICATIONS.md](PROJECT-SPECIFICATIONS.md) remains proposed and indexed in [PLANNED-FEATURES.md](PLANNED-FEATURES.md). Full independent recursion, authoritative zone hosting, DNSSEC signing, clustering, full protocol matrix, Glaze UI, GoreeCloud ecosystem interoperability and production readiness are **not verified by this inventory**.
