@@ -223,13 +223,16 @@ func validateAccessSet(list *accessListJSON) (err error) {
 	)
 }
 
-// normalizeAccessClientKeys uses the same exact-IP identity as the DNS access
-// engine while leaving CIDRs and client identifiers unchanged.
+// normalizeAccessClientKeys compares exact IPs by unzoned address identity
+// and CIDRs by their canonical network range. Client IDs stay unchanged.
+// The original entries are retained for display and the active access engine.
 func normalizeAccessClientKeys(entries []string) []string {
 	normalized := make([]string, len(entries))
 	for i, entry := range entries {
 		if ip, err := netip.ParseAddr(entry); err == nil {
 			normalized[i] = ip.WithZone("").String()
+		} else if prefix, err := netip.ParsePrefix(entry); err == nil {
+			normalized[i] = prefix.Masked().String()
 		} else {
 			normalized[i] = entry
 		}
