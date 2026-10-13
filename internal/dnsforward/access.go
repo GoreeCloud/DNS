@@ -66,6 +66,11 @@ func processAccessClients(
 
 // newAccessCtx creates a new accessCtx.
 func newAccessCtx(allowed, blocked, blockedHosts []string) (a *accessManager, err error) {
+	// Enforce the same access rule consistency at startup as API updates.
+	if err = validateAccessRangeOverlap(allowed, blocked); err != nil {
+		return nil, fmt.Errorf("conflicting saved access ranges: %w", err)
+	}
+
 	a = &accessManager{
 		allowedIPs: container.NewMapSet[netip.Addr](),
 		blockedIPs: container.NewMapSet[netip.Addr](),
@@ -197,12 +202,12 @@ func (s *Server) handleAccessList(w http.ResponseWriter, r *http.Request) {
 // duplicates, we cannot compare the new stringutil.Set and []string, because
 // creating a set for a large array can be an unnecessary algorithmic complexity
 func validateAccessSet(list *accessListJSON) (err error) {
-	allowed, err := validateStrUniq(list.AllowedClients)
+	allowed, err := validateStrUniq(normalizeAccessClientKeys(list.AllowedClients))
 	if err != nil {
 		return fmt.Errorf("validating allowed clients: %w", err)
 	}
 
-	disallowed, err := validateStrUniq(list.DisallowedClients)
+	disallowed, err := validateStrUniq(normalizeAccessClientKeys(list.DisallowedClients))
 	if err != nil {
 		return fmt.Errorf("validating disallowed clients: %w", err)
 	}
@@ -214,13 +219,30 @@ func validateAccessSet(list *accessListJSON) (err error) {
 
 	allowed = allowed.Intersection(allowed, disallowed)
 	if allowed.Len() == 0 {
-		return nil
+		return validateAccessRangeOverlap(list.AllowedClients, list.DisallowedClients)
 	}
 
 	return fmt.Errorf(
 		"items in allowed and disallowed clients intersect: %s",
 		container.MapSetToString(allowed),
 	)
+}
+
+// normalizeAccessClientKeys compares exact IPs by unzoned address identity
+// and CIDRs by their canonical network range. Client IDs stay unchanged.
+// The original entries are retained for display and the active access engine.
+func normalizeAccessClientKeys(entries []string) []string {
+	normalized := make([]string, len(entries))
+	for i, entry := range entries {
+		if ip, err := netip.ParseAddr(entry); err == nil {
+			normalized[i] = ip.WithZone("").String()
+		} else if prefix, err := netip.ParsePrefix(entry); err == nil {
+			normalized[i] = prefix.Masked().String()
+		} else {
+			normalized[i] = entry
+		}
+	}
+	return normalized
 }
 
 // validateStrUniq returns an informative error if clients are not unique.
