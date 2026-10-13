@@ -39,3 +39,14 @@ func TestGoreeCloudBroadMappedNetworkConflictsWithNativeIPv4(t *testing.T) {
 		}
 	}
 }
+
+func TestGoreeCloudBroadMappedOverlapOrdering(t *testing.T) {
+	for _, tc := range []struct{ allow, deny []string }{
+		{[]string{"::1", "::ffff:0.0.0.0/95"}, []string{"192.0.2.45"}},
+		{[]string{"192.0.2.45"}, []string{"::1", "::ffff:0.0.0.0/95"}},
+	} {
+		if _, err := newAccessCtx(tc.allow, tc.deny, nil); err == nil {
+			t.Errorf("cross-family overlap not rejected")
+		}
+	}
+}

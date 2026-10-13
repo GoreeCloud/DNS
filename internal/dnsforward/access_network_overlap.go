@@ -21,6 +21,9 @@ func validateAccessRangeOverlap(allowed, disallowed []string) error {
 			prefix, ok := accessAddressRange(raw)
 			if ok {
 				ranges = append(ranges, accessRangeEntry{prefix: prefix, source: raw})
+				if alias, ok := mappedIPv4Alias(prefix); ok {
+					ranges = append(ranges, accessRangeEntry{prefix: alias, source: raw})
+				}
 			}
 		}
 		sort.Slice(ranges, func(i, j int) bool {
@@ -70,4 +73,14 @@ func accessRangesOverlap(a, b netip.Prefix) bool {
 		return a.Contains(netip.AddrFrom16(b.Addr().As16()))
 	}
 	return false
+}
+
+// mappedIPv4Alias exposes the IPv4 identity of an IPv6 range that
+// contains every mapped IPv4 address. It is used only for overlap sorting.
+func mappedIPv4Alias(prefix netip.Prefix) (netip.Prefix, bool) {
+	if prefix.Addr().Is6() && prefix.Bits() < 96 &&
+		prefix.Contains(netip.MustParseAddr("::ffff:0.0.0.0")) {
+		return netip.PrefixFrom(netip.IPv4Unspecified(), 0), true
+	}
+	return netip.Prefix{}, false
 }
