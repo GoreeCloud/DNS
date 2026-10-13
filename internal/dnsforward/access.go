@@ -66,6 +66,11 @@ func processAccessClients(
 
 // newAccessCtx creates a new accessCtx.
 func newAccessCtx(allowed, blocked, blockedHosts []string) (a *accessManager, err error) {
+	// Enforce the same access rule consistency at startup as API updates.
+	if err = validateAccessRangeOverlap(allowed, blocked); err != nil {
+		return nil, fmt.Errorf("conflicting saved access ranges: %w", err)
+	}
+
 	a = &accessManager{
 		allowedIPs: container.NewMapSet[netip.Addr](),
 		blockedIPs: container.NewMapSet[netip.Addr](),
