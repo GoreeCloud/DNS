@@ -1,6 +1,6 @@
 module github.com/AdguardTeam/AdGuardHome
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/AdguardTeam/dnscrypt v0.0.3
