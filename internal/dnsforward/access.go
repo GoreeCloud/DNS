@@ -214,7 +214,7 @@ func validateAccessSet(list *accessListJSON) (err error) {
 
 	allowed = allowed.Intersection(allowed, disallowed)
 	if allowed.Len() == 0 {
-		return nil
+		return validateAccessRangeOverlap(list.AllowedClients, list.DisallowedClients)
 	}
 
 	return fmt.Errorf(
