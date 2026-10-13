@@ -48,9 +48,9 @@ func processAccessClients(
 		if ip, err = netip.ParseAddr(s); err == nil {
 			// An IPv6 zone identifies the local interface, not a different
 			// client for DNS access-policy purposes.
-			ips.Add(ip.WithZone(""))
+			ips.Add(normalizeAccessAddr(ip))
 		} else if ipnet, err = netip.ParsePrefix(s); err == nil {
-			*nets = append(*nets, ipnet)
+			*nets = append(*nets, normalizeAccessPrefix(ipnet))
 		} else {
 			err = client.ValidateClientID(s)
 			if err != nil {
@@ -148,7 +148,8 @@ func (a *accessManager) isBlockedHost(host string, qt rules.RRType) (ok bool) {
 func (a *accessManager) isBlockedIP(ip netip.Addr) (blocked bool, rule string) {
 	// Match link-local addresses consistently whether or not the incoming
 	// socket address carries an interface zone.
-	ip = ip.WithZone("")
+	rawIP := ip.WithZone("")
+	ip = normalizeAccessAddr(ip)
 	blocked = true
 	ips := a.blockedIPs
 	ipnets := a.blockedNets
@@ -168,7 +169,7 @@ func (a *accessManager) isBlockedIP(ip netip.Addr) (blocked bool, rule string) {
 		// Remove zone before checking because prefixes stip zones.
 		//
 		// TODO(d.kolyshev):  Cover with tests.
-		if ipnet.Contains(ip.WithZone("")) {
+		if ipnet.Contains(ip) || (rawIP != ip && ipnet.Contains(rawIP)) {
 			return blocked, ipnet.String()
 		}
 	}
@@ -235,9 +236,9 @@ func normalizeAccessClientKeys(entries []string) []string {
 	normalized := make([]string, len(entries))
 	for i, entry := range entries {
 		if ip, err := netip.ParseAddr(entry); err == nil {
-			normalized[i] = ip.WithZone("").String()
+			normalized[i] = normalizeAccessAddr(ip).String()
 		} else if prefix, err := netip.ParsePrefix(entry); err == nil {
-			normalized[i] = prefix.Masked().String()
+			normalized[i] = normalizeAccessPrefix(prefix).Masked().String()
 		} else {
 			normalized[i] = entry
 		}
