@@ -25,3 +25,15 @@ func TestGoreeCloudAdjacentMappedIPv4SubnetsDoNotConflict(t *testing.T) {
 		t.Fatalf("disjoint adjacent subnets rejected: %v", err)
 	}
 }
+
+func TestGoreeCloudMappedIPv4WildcardConflictFailsClosed(t *testing.T) {
+	for _, tc := range []struct{ allowed, denied string }{
+		{"::ffff:0.0.0.0/96", "203.0.113.9"},
+		{"203.0.113.9", "::ffff:0.0.0.0/96"},
+		{"::ffff:203.0.113.0/120", "203.0.113.200"},
+	} {
+		if _, err := newAccessCtx([]string{tc.allowed}, []string{tc.denied}, nil); err == nil {
+			t.Errorf("mapped wildcard overlap escaped access-policy conflict checks")
+		}
+	}
+}
