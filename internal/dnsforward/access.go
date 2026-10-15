@@ -220,7 +220,11 @@ func validateAccessSet(list *accessListJSON) (err error) {
 		return fmt.Errorf("validating disallowed clients: %w", err)
 	}
 
-	_, err = validateStrUniq(list.BlockedHosts)
+	canonicalHosts := make([]string, len(list.BlockedHosts))
+	for i, host := range list.BlockedHosts {
+		canonicalHosts[i] = strings.ToLower(host)
+	}
+	_, err = validateStrUniq(canonicalHosts)
 	if err != nil {
 		return fmt.Errorf("validating blocked hosts: %w", err)
 	}
