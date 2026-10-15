@@ -3,6 +3,7 @@ package dnsforward
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/netip"
 	"slices"
@@ -278,13 +279,27 @@ func validateStrUniq(clients []string) (m *container.MapSet[string], err error) 
 	return m, nil
 }
 
+// decodeAccessSet accepts exactly one JSON document. Extra JSON values or
+// malformed trailing bytes must not be silently ignored and persisted.
+func decodeAccessSet(body io.Reader) (*accessListJSON, error) {
+	list := &accessListJSON{}
+	decoder := json.NewDecoder(body)
+	if err := decoder.Decode(&list); err != nil {
+		return nil, err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return nil, fmt.Errorf("access list has trailing JSON content")
+	}
+	return list, nil
+}
+
 // handleAccessSet handles requests to the POST /control/access/set endpoint.
 func (s *Server) handleAccessSet(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	l := s.logger
 
-	list := &accessListJSON{}
-	err := json.NewDecoder(r.Body).Decode(&list)
+	list, err := decodeAccessSet(r.Body)
 	if err != nil {
 		aghhttp.ErrorAndLog(ctx, l, r, w, http.StatusBadRequest, "decoding request: %s", err)
 
