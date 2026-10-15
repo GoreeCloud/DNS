@@ -65,6 +65,11 @@ func decodeStrictAccessSet(body io.Reader) (*accessListJSON, error) {
 	if err != nil || end != json.Delim('}') {
 		return nil, fmt.Errorf("invalid access-list object ending")
 	}
+	// This endpoint replaces all lists, not a partial patch. Missing or null
+	// members would silently clear existing policy, unlike an explicit [].
+	if list.AllowedClients == nil || list.DisallowedClients == nil || list.BlockedHosts == nil {
+		return nil, fmt.Errorf("all access-list members must be explicit arrays")
+	}
 	var trailing json.RawMessage
 	if err := decoder.Decode(&trailing); err != io.EOF {
 		return nil, fmt.Errorf("unexpected trailing access-list data")
