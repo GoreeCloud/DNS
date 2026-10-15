@@ -1,9 +1,7 @@
 package dnsforward
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/netip"
 	"slices"
@@ -284,18 +282,9 @@ func (s *Server) handleAccessSet(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	l := s.logger
 
-	list := &accessListJSON{}
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	err := decoder.Decode(&list)
+	list, err := decodeStrictAccessSet(r.Body)
 	if err != nil {
 		aghhttp.ErrorAndLog(ctx, l, r, w, http.StatusBadRequest, "decoding request: %s", err)
-
-		return
-	}
-	var trailing json.RawMessage
-	if err = decoder.Decode(&trailing); err != io.EOF {
-		aghhttp.ErrorAndLog(ctx, l, r, w, http.StatusBadRequest, "unexpected trailing access-list data")
 
 		return
 	}
