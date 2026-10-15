@@ -1,6 +1,7 @@
 package dnsforward
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,8 +11,17 @@ import (
 // decodeStrictAccessSet refuses duplicate policy keys before applying a new
 // access list. encoding/json otherwise silently uses the last matching key,
 // which can discard earlier allow/deny rules.
+const maxAccessSetBodyBytes = 1 << 20 // 1 MiB; bounds parsing work for administrative requests.
+
 func decodeStrictAccessSet(body io.Reader) (*accessListJSON, error) {
-	decoder := json.NewDecoder(body)
+	data, err := io.ReadAll(io.LimitReader(body, maxAccessSetBodyBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("reading access-list body: %w", err)
+	}
+	if len(data) > maxAccessSetBodyBytes {
+		return nil, fmt.Errorf("access-list body exceeds 1 MiB")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
 	start, err := decoder.Token()
 	if err != nil {
 		return nil, fmt.Errorf("invalid access-list object: %w", err)
