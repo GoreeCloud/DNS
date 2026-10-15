@@ -204,6 +204,12 @@ func (s *Server) handleAccessList(w http.ResponseWriter, r *http.Request) {
 // duplicates, we cannot compare the new stringutil.Set and []string, because
 // creating a set for a large array can be an unnecessary algorithmic complexity
 func validateAccessSet(list *accessListJSON) (err error) {
+	// JSON null decodes into a nil pointer in handleAccessSet. Reject it
+	// before dereferencing instead of panicking on an API request.
+	if list == nil {
+		return fmt.Errorf("access list must not be null")
+	}
+
 	allowed, err := validateStrUniq(normalizeAccessClientKeys(list.AllowedClients))
 	if err != nil {
 		return fmt.Errorf("validating allowed clients: %w", err)
