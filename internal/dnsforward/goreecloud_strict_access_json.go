@@ -43,7 +43,7 @@ func decodeStrictAccessSet(body io.Reader) (*accessListJSON, error) {
 		}
 		for _, previous := range seen {
 			if strings.EqualFold(previous, key) {
-				return nil, fmt.Errorf("duplicate access-list member %q", key)
+				return nil, fmt.Errorf("duplicate access-list member")
 			}
 		}
 		seen = append(seen, key)
@@ -55,10 +55,10 @@ func decodeStrictAccessSet(body io.Reader) (*accessListJSON, error) {
 		case strings.EqualFold(key, "blocked_hosts"):
 			err = decoder.Decode(&list.BlockedHosts)
 		default:
-			return nil, fmt.Errorf("unknown access-list member %q", key)
+			return nil, fmt.Errorf("unknown access-list member")
 		}
 		if err != nil {
-			return nil, fmt.Errorf("invalid access-list member %q: %w", key, err)
+			return nil, fmt.Errorf("invalid access-list member value")
 		}
 	}
 	end, err := decoder.Token()
