@@ -291,7 +291,8 @@ func (s *Server) handleAccessSet(w http.ResponseWriter, r *http.Request) {
 
 	err = validateAccessSet(list)
 	if err != nil {
-		aghhttp.ErrorAndLog(ctx, l, r, w, http.StatusBadRequest, "%s", err)
+		// Policy validation can include private hostnames or client IDs in errors.
+		aghhttp.ErrorAndLog(ctx, l, r, w, http.StatusBadRequest, "access policy validation failed")
 
 		return
 	}
@@ -299,7 +300,7 @@ func (s *Server) handleAccessSet(w http.ResponseWriter, r *http.Request) {
 	var a *accessManager
 	a, err = newAccessCtx(list.AllowedClients, list.DisallowedClients, list.BlockedHosts)
 	if err != nil {
-		aghhttp.ErrorAndLog(ctx, l, r, w, http.StatusBadRequest, "creating access ctx: %s", err)
+		aghhttp.ErrorAndLog(ctx, l, r, w, http.StatusBadRequest, "access policy content rejected")
 
 		return
 	}
