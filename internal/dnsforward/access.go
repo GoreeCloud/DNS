@@ -1,7 +1,6 @@
 package dnsforward
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/netip"
@@ -220,7 +219,11 @@ func validateAccessSet(list *accessListJSON) (err error) {
 		return fmt.Errorf("validating disallowed clients: %w", err)
 	}
 
-	_, err = validateStrUniq(list.BlockedHosts)
+	canonicalHosts := make([]string, len(list.BlockedHosts))
+	for i, host := range list.BlockedHosts {
+		canonicalHosts[i] = strings.ToLower(host)
+	}
+	_, err = validateStrUniq(canonicalHosts)
 	if err != nil {
 		return fmt.Errorf("validating blocked hosts: %w", err)
 	}
@@ -279,8 +282,7 @@ func (s *Server) handleAccessSet(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	l := s.logger
 
-	list := &accessListJSON{}
-	err := json.NewDecoder(r.Body).Decode(&list)
+	list, err := decodeStrictAccessSet(r.Body)
 	if err != nil {
 		aghhttp.ErrorAndLog(ctx, l, r, w, http.StatusBadRequest, "decoding request: %s", err)
 
@@ -289,7 +291,8 @@ func (s *Server) handleAccessSet(w http.ResponseWriter, r *http.Request) {
 
 	err = validateAccessSet(list)
 	if err != nil {
-		aghhttp.ErrorAndLog(ctx, l, r, w, http.StatusBadRequest, "%s", err)
+		// Policy validation can include private hostnames or client IDs in errors.
+		aghhttp.ErrorAndLog(ctx, l, r, w, http.StatusBadRequest, "access policy validation failed")
 
 		return
 	}
@@ -297,7 +300,7 @@ func (s *Server) handleAccessSet(w http.ResponseWriter, r *http.Request) {
 	var a *accessManager
 	a, err = newAccessCtx(list.AllowedClients, list.DisallowedClients, list.BlockedHosts)
 	if err != nil {
-		aghhttp.ErrorAndLog(ctx, l, r, w, http.StatusBadRequest, "creating access ctx: %s", err)
+		aghhttp.ErrorAndLog(ctx, l, r, w, http.StatusBadRequest, "access policy content rejected")
 
 		return
 	}
