@@ -23,6 +23,7 @@ trap 'rm -rf -- "$work"' EXIT
 mkdir -p "$work/app" "$work/config"
 cp -a -- "$release/." "$work/app/"
 cp -- "$(dirname "$0")/smoke_dns_protocol.pl" "$work/smoke_dns_protocol.pl"
+cp -- "$(dirname "$0")/smoke_auth_session.pl" "$work/smoke_auth_session.pl"
 
 cat > "$work/run-smoke.sh" <<'SMOKE'
 #!/usr/bin/env bash
@@ -43,7 +44,10 @@ if [ "$failed_status" -eq 124 ] ||
 fi
 echo "PASS: missing admin password file fails closed"
 
-dotnet DnsServerApp.dll --stop-if-bind-fails --portable-app /work/config > /work/service.log 2>&1 &
+umask 077
+od -An -N24 -tx1 /dev/urandom | tr -d '[:space:]' > /work/admin-password
+[ "$(wc -c < /work/admin-password)" -eq 48 ] || { echo "FAIL: cannot generate temporary administrator secret"; exit 1; }
+DNS_SERVER_ADMIN_PASSWORD_FILE=/work/admin-password dotnet DnsServerApp.dll --stop-if-bind-fails --portable-app /work/config > /work/service.log 2>&1 &
 service_pid=$!
 trap 'kill "$service_pid" 2>/dev/null || true; wait "$service_pid" 2>/dev/null || true' EXIT
 
@@ -88,6 +92,8 @@ case "$status_code" in
         exit 1
         ;;
 esac
+
+perl /work/smoke_auth_session.pl
 
 echo "PASS: isolated runtime smoke tests"
 SMOKE
