@@ -38,6 +38,10 @@ The isolated authoritative-zone smoke also creates the reserved test zone `smoke
 
 The same opt-in isolated harness now verifies **negative authoritative responses** from the disposable zone on both UDP and TCP: `absent.smoke.invalid` A queries return NXDOMAIN (RCODE 3) with an SOA in the authority section, while `host.smoke.invalid` AAAA queries return NOERROR with no answers (NODATA) and an authoritative SOA. Both tests require the authoritative-answer flag and a matching transaction ID. This does not verify DNSSEC denial-of-existence proofs, recursive caching behavior, zone transfers, or external network interoperability.
 
+## EDNS version rejection smoke
+
+The rootless, network-disabled DNS protocol harness checks EDNS(0) error handling by sending a bounded valid DNS query with an unsupported **EDNS version 1** OPT record over UDP and TCP. The response must preserve the transaction ID, include exactly one OPT record, advertise EDNS version 0, and encode **BADVERS (extended DNS response code 16)**. Both wire checks passed locally against the disposable loopback DNS listener. This verifies one unsupported-version boundary, **not** broad EDNS option parsing, truncation, amplification resistance, malformed-packet fuzzing, DNSSEC validation, or public-network interoperability.
+
 ## First-run administrator credential safety
 
 **This is a development distribution, not a hardened public deployment.** In a fresh upstream-derived configuration, the administrator account defaults to `admin/admin` when no administrator password configuration is provided. Do not expose the management console or API to an untrusted network with that default. Change credentials before any networked staging, restrict the management listener with `DNS_SERVER_WEB_SERVICE_LOCAL_ADDRESSES` and network policy, and use trusted HTTPS when applicable.
