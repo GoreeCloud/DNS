@@ -20,6 +20,8 @@ jobs:
         run: |
           node --check DnsServerCore/www/js/main.js
           node --check DnsServerCore/dohwww/js/main.js
+      - name: Check isolated runtime harness syntax
+        run: bash -n tests/smoke_runtime.sh
       - name: Check committed patch whitespace
         run: git diff --check HEAD^ HEAD
 

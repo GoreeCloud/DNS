@@ -58,6 +58,15 @@ class GoreeCloudFrontend(unittest.TestCase):
         self.assertIn("mcr.microsoft.com/dotnet/sdk@sha256:",workflow)
         self.assertIn("dotnet build DnsServerApp/DnsServerApp.csproj",workflow)
 
+    def test_runtime_smoke_does_not_touch_host_dns(self):
+        harness=self.source("tests/smoke_runtime.sh")
+        self.assertIn('podman info --format',harness)
+        self.assertIn('--network=none',harness)
+        self.assertIn('--cap-drop=ALL --cap-add=NET_BIND_SERVICE',harness)
+        self.assertIn('DNS_SERVER_RECURSION=Deny',harness)
+        self.assertNotIn('--network=host',harness)
+        self.assertNotIn('sudo ',harness)
+
     def test_license_preserved(self):
         self.assertIn("GNU GENERAL PUBLIC LICENSE",self.source("LICENSE"))
         self.assertIn("Copyright (C) 2026  Shreyas Zare",self.source("DnsServerCore/www/js/main.js"))
