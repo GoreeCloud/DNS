@@ -279,8 +279,8 @@ $(function () {
 
     var headerHtml = $("#header").html();
 
-    $("#header").html("<div class=\"title\"><a href=\".\"><img src=\"img/logo25x25.png\" alt=\"Technitium Logo\" /><span class=\"text\" style=\"color: #ffffff;\">Technitium</span></a>" + headerHtml + "</div>");
-    $("#footer").html("<div class=\"content\"><a href=\"https://technitium.com/\" target=\"_blank\">Technitium</a> | <a href=\"https://blog.technitium.com/\" target=\"_blank\">Blog</a> | <a href=\"https://go.technitium.com/?id=35\" target=\"_blank\">Donate</a> | <a href=\"https://dnsclient.net/\" target=\"_blank\">DNS Client</a> | <a href=\"https://github.com/TechnitiumSoftware/DnsServer\" target=\"_blank\"><i class=\"fa fa-github\"></i>&nbsp;GitHub</a> | <a href=\"#\" onclick=\"showAbout(); return false;\">About</a></div>");
+    $("#header").html("<div class=\"title\"><a href=\".\" aria-label=\"GoreeCloud DNS home\"><span class=\"text\" style=\"color: #ffffff;\">GoreeCloud DNS</span></a>" + headerHtml + "</div>");
+    $("#footer").html("<div class=\"content\"><a href=\"https://github.com/GoreeCloud/DNS\" target=\"_blank\" rel=\"noopener noreferrer\">GoreeCloud DNS source</a> | <a href=\"https://github.com/TechnitiumSoftware/DnsServer\" target=\"_blank\" rel=\"noopener noreferrer\">Technitium upstream</a> | <a href=\"#\" onclick=\"showAbout(); return false;\">About</a></div>");
 
     loadQuickBlockLists();
     loadQuickForwardersList();
@@ -1159,7 +1159,7 @@ function updateDnsSettingsDataAndGui(responseJSON) {
     sessionData.info.dnsServerDomain = responseJSON.response.dnsServerDomain;
     sessionData.info.uptimestamp = responseJSON.response.uptimestamp; //update timestamp since server may have restarted during current session
 
-    document.title = responseJSON.response.dnsServerDomain + " - " + "Technitium DNS Server v" + responseJSON.response.version;
+    document.title = responseJSON.response.dnsServerDomain + " - " + "GoreeCloud DNS (upstream v" + responseJSON.response.version + ")";
     $("#lblAboutVersion").text(responseJSON.response.version);
     $("#lblAboutUptime").text(moment(responseJSON.response.uptimestamp).local().format("lll") + " (" + moment(responseJSON.response.uptimestamp).fromNow() + ")");
     $("#lblDnsServerDomain").text(" - " + responseJSON.response.dnsServerDomain);

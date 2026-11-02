@@ -9,14 +9,14 @@
 		<ApplicationIcon>logo2.ico</ApplicationIcon>
 		<Version>15.6.2</Version>
 		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-		<Company>Technitium</Company>
-		<Product>Technitium DNS Server</Product>
-		<Authors>Shreyas Zare</Authors>
+		<Company>GoreeCloud</Company>
+		<Product>GoreeCloud DNS (based on Technitium DNS Server)</Product>
+		<Authors>Shreyas Zare; GoreeCloud contributors</Authors>
 		<AssemblyName>DnsServerApp</AssemblyName>
 		<RootNamespace>DnsServerApp</RootNamespace>
 		<StartupObject>DnsServerApp.Program</StartupObject>
-		<PackageProjectUrl>https://technitium.com/dns/</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/TechnitiumSoftware/DnsServer</RepositoryUrl>
+		<PackageProjectUrl>https://github.com/GoreeCloud/DNS</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/GoreeCloud/DNS</RepositoryUrl>
 	</PropertyGroup>
 
 	<ItemGroup>
