@@ -24,4 +24,17 @@ $(function () {
 
     lnkDoH.text(link);
     lnkDoH.attr("href", link);
+
+    $("#btnCopyDoH").on("click", function () {
+        var status = $("#copyDoHStatus");
+        if (!window.isSecureContext || !navigator.clipboard || !navigator.clipboard.writeText) {
+            status.text("Automatic copying is unavailable. Select and copy the URL above.");
+            return;
+        }
+        navigator.clipboard.writeText(link).then(function () {
+            status.text("Encrypted DNS URL copied.");
+        }, function () {
+            status.text("Could not copy automatically. Select and copy the URL above.");
+        });
+    });
 });

@@ -40,9 +40,12 @@ EXPOSE \
 
 # https://specs.opencontainers.org/image-spec/annotations/
 # https://github.com/opencontainers/image-spec/blob/main/annotations.md
-LABEL org.opencontainers.image.title="Technitium DNS Server"
-LABEL org.opencontainers.image.version=15.6.2
-LABEL org.opencontainers.image.vendor="Technitium"
-LABEL org.opencontainers.image.source="https://github.com/TechnitiumSoftware/DnsServer"
-LABEL org.opencontainers.image.url="https://technitium.com/dns/"
-LABEL org.opencontainers.image.authors="support@technitium.com"
+LABEL org.opencontainers.image.title="GoreeCloud DNS"
+LABEL org.opencontainers.image.version="15.6.2-gc-dev"
+LABEL org.opencontainers.image.vendor="GoreeCloud"
+LABEL org.opencontainers.image.source="https://github.com/GoreeCloud/DNS"
+LABEL org.opencontainers.image.url="https://github.com/GoreeCloud/DNS"
+LABEL org.opencontainers.image.authors="GoreeCloud contributors; based on Technitium DNS Server by Shreyas Zare"
+
+LABEL org.opencontainers.image.licenses="GPL-3.0-or-later"
+LABEL org.opencontainers.image.description="Development distribution based on Technitium DNS Server; no production release certification"

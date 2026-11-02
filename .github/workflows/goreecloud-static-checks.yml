@@ -1,0 +1,47 @@
+name: GoreeCloud DNS static verification
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 2
+      - name: Test brand, license, accessibility and packaging
+        run: python3 -m unittest discover -s tests -p 'test_goreecloud_frontend.py' -v
+      - name: Check browser script syntax
+        run: |
+          node --check DnsServerCore/www/js/main.js
+          node --check DnsServerCore/dohwww/js/main.js
+      - name: Check committed patch whitespace
+        run: git diff --check HEAD^ HEAD
+
+  dotnet-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: mcr.microsoft.com/dotnet/sdk@sha256:9c7b6b263d9d4c2e4718e16dae6d75cd8f4b5ccf206f1e7d48a98eb429981b03
+    steps:
+      - name: Checkout GoreeCloud DNS
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Fetch exact upstream dependency commit
+        run: |
+          git init -q ../TechnitiumLibrary
+          git -C ../TechnitiumLibrary remote add origin https://github.com/TechnitiumSoftware/TechnitiumLibrary.git
+          git -C ../TechnitiumLibrary fetch --depth 1 origin 4a5a530ac6c4114e72216e0b9c74208a7a5e3fa0
+          git -C ../TechnitiumLibrary checkout --quiet --detach FETCH_HEAD
+          test "$(git -C ../TechnitiumLibrary rev-parse HEAD)" = "4a5a530ac6c4114e72216e0b9c74208a7a5e3fa0"
+      - name: Build pinned Technitium libraries
+        run: |
+          dotnet build ../TechnitiumLibrary/TechnitiumLibrary.ByteTree/TechnitiumLibrary.ByteTree.csproj -c Release --nologo --verbosity quiet
+          dotnet build ../TechnitiumLibrary/TechnitiumLibrary.Net/TechnitiumLibrary.Net.csproj -c Release --nologo --verbosity quiet
+          dotnet build ../TechnitiumLibrary/TechnitiumLibrary.Security.OTP/TechnitiumLibrary.Security.OTP.csproj -c Release --nologo --verbosity quiet
+      - name: Build GoreeCloud DNS application
+        run: dotnet build DnsServerApp/DnsServerApp.csproj -c Release --nologo --verbosity quiet

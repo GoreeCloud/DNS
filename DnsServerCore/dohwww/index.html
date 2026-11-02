@@ -4,10 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>Technitium DNS Server</title>
+    <title>GoreeCloud DNS - encrypted DNS setup</title>
 
     <link href="/css/main.css" rel="stylesheet" />
     <link href="/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="/css/goreecloud.css" rel="stylesheet" />
 
     <script src="/js/jquery.min.js"></script>
     <script src="/js/main.js"></script>
@@ -16,10 +17,8 @@
     <div id="content">
         <div class="container">
             <div class="features" style="text-align: center; margin-top: 60px;">
-                <a href="/">
-                    <img src="/img/logo.png" alt="Technitium Logo" />
-                </a>
-                <h1>Technitium DNS Server</h1>
+                <h1 class="gc-brand-heading">GoreeCloud DNS</h1>
+                <p>Based on <a href="https://github.com/TechnitiumSoftware/DnsServer" rel="noopener noreferrer">Technitium DNS Server</a>.</p>
                 <p style="max-width: 800px; margin-right: auto; margin-left: auto;">This server supports encrypted DNS protocol (DNS-over-HTTPS) that you can use with your web browser like Mozilla Firefox.</p>
 
                 <h3 style="margin-top: 40px;">The Encrypted DNS Service URL</h3>
@@ -29,6 +28,8 @@
                 <p style="font-size: 16px; font-weight: bold;">
                     <a id="lnkDoH" href=""></a>
                 </p>
+                <button type="button" id="btnCopyDoH" class="gc-copy-button">Copy encrypted DNS URL</button>
+                <span id="copyDoHStatus" role="status" aria-live="polite" class="gc-copy-status"></span>
 
                 <h3 style="margin-top: 40px;">Mozilla Firefox Configuration</h3>
                 <p style="max-width: 800px; margin-right: auto; margin-left: auto;">

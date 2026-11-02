@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     <meta name="robots" content="noindex, nofollow" />
     <meta name="referrer" content="no-referrer" />
 
-    <title>Technitium DNS Server</title>
+    <title>GoreeCloud DNS</title>
 
     <script src="js/jquery.min.js"></script>
 
@@ -40,6 +40,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     <link href="css/main.css" rel="stylesheet" />
     <link href="css/dark-mode.css" rel="stylesheet" />
     <link href="css/amber-mode.css" rel="stylesheet" />
+    <link href="css/goreecloud.css" rel="stylesheet" />
 
     <script src="js/common.js"></script>
     <script src="js/main.js"></script>
@@ -53,6 +54,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     <script src="js/logs.js"></script>
 </head>
 <body>
+    <a class="gc-skip-link" href="#content">Skip to main content</a>
     <div id="header">
         <div id="mnuUser" class="menu dropdown" style="display: none;">
             <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false" style="text-decoration: none;">
@@ -78,35 +80,35 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
         </div>
     </div>
 
-    <div id="content">
+    <div id="content" tabindex="-1">
         <div class="container">
             <div class="AlertPlaceholder"></div>
 
             <div id="pageLogin" class="pageLogin">
                 <div class="panel panel-default">
                     <div class="panel-heading">
-                        <h3 class="panel-title">DNS Server</h3>
+                        <h3 class="panel-title">GoreeCloud DNS</h3>
                     </div>
                     <div class="panel-body">
                         <form class="form-horizontal">
                             <div class="form-group">
                                 <label for="txtUser" class="col-sm-3 control-label">Username</label>
                                 <div class="col-sm-8">
-                                    <input type="text" class="form-control" id="txtUser" placeholder="username">
+                                    <input type="text" class="form-control" id="txtUser" placeholder="username" autocomplete="username">
                                 </div>
                             </div>
 
                             <div class="form-group">
                                 <label for="txtPass" class="col-sm-3 control-label">Password</label>
                                 <div class="col-sm-8">
-                                    <input type="password" class="form-control" id="txtPass" placeholder="password">
+                                    <input type="password" class="form-control" id="txtPass" placeholder="password" autocomplete="current-password">
                                 </div>
                             </div>
 
                             <div class="form-group" id="div2FAOTP">
                                 <label for="txt2FATOTP" class="col-sm-3 control-label">Enter OTP</label>
                                 <div class="col-sm-8">
-                                    <input id="txt2FATOTP" type="text" class="form-control" style="width: 100px;" placeholder="OTP" maxlength="6" autocomplete="off">
+                                    <input id="txt2FATOTP" type="text" class="form-control" style="width: 100px;" placeholder="OTP" maxlength="6" autocomplete="one-time-code">
                                     <div style="padding-top: 5px;">Enter the 6-digit code you see in your authenticator app.</div>
                                 </div>
                             </div>
@@ -3641,8 +3643,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                                 <div id="mainPanelTabPaneAbout" role="tabpanel" class="tab-pane" style="padding: 40px 0 20px 0;">
 
                                     <div class="about" style="text-align: center;">
-                                        <img src="img/logo.png" alt="Technitium Logo" />
-                                        <h1>Technitium DNS Server</h1>
+                                        <h1 class="gc-brand-heading">GoreeCloud DNS</h1>
+                                        <p>Based on <a href="https://github.com/TechnitiumSoftware/DnsServer" target="_blank" rel="noopener noreferrer">Technitium DNS Server</a> by Shreyas Zare.</p>
+                                        <p>GoreeCloud modifications: <a href="https://github.com/GoreeCloud/DNS" target="_blank" rel="noopener noreferrer">source repository</a>.</p>
                                         <p>Version <span id="lblAboutVersion"></span></p>
                                         <p>Server up since <span id="lblAboutUptime"></span></p>
                                         <p style="max-width: 800px; margin: 0 auto 10px auto;">

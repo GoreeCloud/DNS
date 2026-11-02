@@ -1,3 +1,13 @@
+# GoreeCloud DNS
+
+**Development distribution** of [Technitium DNS Server](https://github.com/TechnitiumSoftware/DnsServer), based on the original upstream master commit 0dd592aad21eced4221a9a46204cb1a299972ca0 (v15.6.2). The unmodified source is preserved in branch upstream/technitium-master-20261102. GoreeCloud is not an official Technitium release.
+
+The features described in the original upstream README below are inherited from Technitium. The GoreeCloud additions currently cover console branding, source attribution, accessible navigation, an encrypted DNS setup URL copy action, and regression checks. See [development notes](docs/GOREECLOUD_DNS.md).
+
+The original copyright statements and GPL license remain in effect. This is not a production-tested release.
+
+---
+
 <p align="center">
 	<a href="https://technitium.com/dns/">
 		<img src="https://technitium.com/img/logo.png" alt="Technitium DNS Server" /><br />
