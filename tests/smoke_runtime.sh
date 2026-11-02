@@ -22,6 +22,7 @@ work="$(mktemp -d /tmp/goreecloud-dns-smoke.XXXXXXXX)"
 trap 'rm -rf -- "$work"' EXIT
 mkdir -p "$work/app" "$work/config"
 cp -a -- "$release/." "$work/app/"
+cp -- "$(dirname "$0")/smoke_dns_protocol.pl" "$work/smoke_dns_protocol.pl"
 
 cat > "$work/run-smoke.sh" <<'SMOKE'
 #!/usr/bin/env bash
@@ -50,38 +51,28 @@ curl --fail --silent --max-time 3 http://127.0.0.1:5380/css/goreecloud.css |
     grep -Fq "gc-skip-link" || { echo "FAIL: GoreeCloud styles unavailable"; exit 1; }
 echo "PASS: branded console CSS served"
 
-perl -MIO::Socket::INET <<'PERL'
-use strict;
-use warnings;
+perl /work/smoke_dns_protocol.pl udp
+perl /work/smoke_dns_protocol.pl tcp
 
-my $socket = IO::Socket::INET->new(
-    PeerAddr => "127.0.0.1",
-    PeerPort => 53,
-    Proto    => "udp"
-) or die "FAIL: DNS UDP socket could not be opened\n";
-
-my $query = pack("n6", 0xBEEF, 0x0100, 1, 0, 0, 0)
-          . pack("C", 9) . "localhost" . "\0"
-          . pack("n2", 1, 1);
-
-send($socket, $query, 0) == length($query)
-    or die "FAIL: could not send DNS UDP query\n";
-
-$SIG{ALRM} = sub { die "FAIL: DNS query timed out\n" };
-alarm 4;
-my $answer;
-my $peer = recv($socket, $answer, 512, 0);
-alarm 0;
-defined $peer && length($answer) >= 12
-    or die "FAIL: missing or malformed DNS UDP response\n";
-
-my ($id, $flags, $questions, $answers) = unpack("n4", $answer);
-$id == 0xBEEF or die "FAIL: DNS transaction ID mismatch\n";
-($flags & 0x8000) or die "FAIL: DNS response bit missing\n";
-$questions == 1 or die "FAIL: DNS question count mismatch\n";
-($flags & 15) == 5 or die "FAIL: expected REFUSED (recursion is denied)\n";
-print "PASS: UDP DNS replied REFUSED under explicit recursion-denied configuration\n";
-PERL
+status_code="$(curl --silent --show-error --max-time 4 -o /work/unauth-settings.json -w '%{http_code}' http://127.0.0.1:5380/api/settings/get)"
+case "$status_code" in
+    401|403)
+        echo "PASS: settings API rejects unauthenticated access (HTTP $status_code)"
+        ;;
+    200)
+        if grep -Eiq '"status"[[:space:]]*:[[:space:]]*"invalid-token"' /work/unauth-settings.json &&
+           ! grep -Eq '"response"[[:space:]]*:' /work/unauth-settings.json; then
+            echo "PASS: settings API rejects unauthenticated access in error response"
+        else
+            echo "FAIL: settings API may expose data without authentication" >&2
+            exit 1
+        fi
+        ;;
+    *)
+        echo "FAIL: unexpected unauthenticated settings API HTTP status $status_code" >&2
+        exit 1
+        ;;
+esac
 
 echo "PASS: isolated runtime smoke tests"
 SMOKE

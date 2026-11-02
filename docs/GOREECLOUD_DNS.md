@@ -30,7 +30,7 @@ After building the Release application according to the upstream build.md and th
 
     bash tests/smoke_runtime.sh /absolute/path/to/DnsServerApp/bin/Release
 
-This is an **explicit opt-in** test; it is not automatically invoked by the hosted GitHub Actions build. It requires rootless Podman and its pre-pulled, pinned Microsoft .NET SDK container image. The harness copies build output to a temporary directory; runs the DNS application with portable configuration, no network access, no host port mappings, minimal container bind capability and recursion disabled; verifies the branded HTTP console, stylesheet and a localhost DNS UDP REFUSED response; then stops the server and removes temporary files. The DNS response checks only basic protocol/service behavior, **not external recursion or DNSSEC correctness**.
+This is an **explicit opt-in** test; it is not automatically invoked by the hosted GitHub Actions build. It requires rootless Podman and its pre-pulled, pinned Microsoft .NET SDK container image. The harness copies build output to a temporary directory; runs the DNS application with portable configuration, no network access, no host port mappings, minimal container bind capability and recursion disabled; verifies the branded HTTP console and stylesheet, localhost DNS UDP and DNS-over-TCP REFUSED responses, and denial of unauthenticated administrative settings API access; then stops the server and removes temporary files. The DNS response checks only basic protocol/service behavior, **not external recursion or DNSSEC correctness**.
 
 Never substitute host networking, rootful Podman or a production DNS configuration to make this smoke test pass.
 
