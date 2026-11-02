@@ -963,14 +963,17 @@ namespace DnsServerCore.Auth
                     using (StreamReader sR = new StreamReader(adminPasswordFile, true))
                     {
                         string password = sR.ReadLine();
+                        if (string.IsNullOrWhiteSpace(password))
+                            throw new InvalidDataException("The administrator password file is empty.");
+
                         adminUser = CreateUser("Administrator", "admin", password);
                     }
                 }
                 catch (Exception ex)
                 {
-                    _log.Write(ex);
-
-                    adminUser = CreateUser("Administrator", "admin", "admin");
+                    //An explicitly configured secret must never fall back to a known password.
+                    throw new InvalidOperationException(
+                        "Could not initialize administrator credentials from DNS_SERVER_ADMIN_PASSWORD_FILE.", ex);
                 }
             }
             else
