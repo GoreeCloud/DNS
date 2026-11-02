@@ -8,3 +8,22 @@
 .gc-copy-button:focus-visible { outline: 3px solid var(--gc-dns-lagoon); outline-offset: 3px; }
 .gc-copy-status { display: block; min-height: 1.5em; margin: 10px auto; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .gc-skip-link, .gc-copy-button { animation: none !important; transition: none !important; } }
+
+/* GC UI semantic role fallbacks for the public DNS-over-HTTPS setup page.
+   The existing upstream stylesheet has low-contrast paragraph/link defaults. */
+.gc-doh-setup .features p {
+    color: var(--gc-text-soft, #4b5563);
+}
+.gc-doh-setup .features a {
+    color: var(--gc-brand, #3930a4);
+    text-decoration: underline;
+    text-underline-offset: .15em;
+}
+.gc-doh-url, .gc-doh-url a {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+@media (forced-colors: active) {
+    .gc-doh-setup .features a { color: LinkText; }
+    .gc-skip-link { color: LinkText; background: Canvas; border-color: CanvasText; }
+}

@@ -15,7 +15,7 @@ jobs:
         with:
           fetch-depth: 2
       - name: Test brand, license, accessibility and packaging
-        run: python3 -m unittest discover -s tests -p 'test_goreecloud_frontend.py' -v
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Check browser script syntax
         run: |
           node --check DnsServerCore/www/js/main.js

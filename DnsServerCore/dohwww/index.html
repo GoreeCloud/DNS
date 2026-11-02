@@ -14,7 +14,8 @@
     <script src="/js/main.js"></script>
 </head>
 <body>
-    <div id="content">
+    <a class="gc-skip-link" href="#content">Skip to DNS setup</a>
+    <main id="content" class="gc-doh-setup" tabindex="-1">
         <div class="container">
             <div class="features" style="text-align: center; margin-top: 60px;">
                 <h1 class="gc-brand-heading">GoreeCloud DNS</h1>
@@ -25,7 +26,7 @@
                 <p>
                     Use the following URL to configure your clients for consuming the DNS-over-HTTPS service.
                 </p>
-                <p style="font-size: 16px; font-weight: bold;">
+                <p class="gc-doh-url" style="font-size: 16px; font-weight: bold;">
                     <a id="lnkDoH" href=""></a>
                 </p>
                 <button type="button" id="btnCopyDoH" class="gc-copy-button">Copy encrypted DNS URL</button>
@@ -41,6 +42,6 @@
                 </p>
             </div>
         </div>
-    </div>
+    </main>
 </body>
 </html>
