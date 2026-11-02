@@ -86,6 +86,24 @@ curl --fail --silent --max-time 3 http://127.0.0.1:5380/css/goreecloud.css |
     grep -Fq "gc-skip-link" || { echo "FAIL: GoreeCloud styles unavailable"; exit 1; }
 echo "PASS: branded console CSS served"
 
+# A second instance sharing the same isolated loopback listeners must fail quickly.
+# Use independent disposable configuration; do not interact with any host ports.
+mkdir -p /work/bind-collision-config
+collision_status=0
+timeout 12s env DNS_SERVER_ADMIN_PASSWORD_FILE=/work/admin-password \
+    dotnet DnsServerApp.dll --stop-if-bind-fails --portable-app /work/bind-collision-config \
+    > /work/bind-collision.log 2>&1 || collision_status=$?
+if [ "$collision_status" -eq 0 ] || [ "$collision_status" -eq 124 ] ||
+   [ "$collision_status" -eq 125 ] || [ "$collision_status" -eq 126 ] ||
+   [ "$collision_status" -eq 127 ] || [ "$collision_status" -eq 137 ] ||
+   ! grep -Eiq 'address already in use|failed to bind|AddressInUse' /work/bind-collision.log; then
+    echo "FAIL: duplicate server did not report an unsuccessful listener bind (exit $collision_status)" >&2
+    exit 1
+fi
+curl --fail --silent --max-time 3 -o /dev/null http://127.0.0.1:5380/ ||
+    { echo "FAIL: primary DNS console died after bind collision" >&2; exit 1; }
+echo "PASS: duplicate listener startup fails without stopping primary service"
+
 perl /work/smoke_dns_protocol.pl udp
 perl /work/smoke_dns_protocol.pl tcp
 
