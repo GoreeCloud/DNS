@@ -50,6 +50,10 @@ Do not place password contents in repository files, build logs, CI variables pri
 
 The opt-in, rootless, `--network=none` harness now checks the existing source-IP login limiter **after** all other authenticated API checks. Five bounded invalid password attempts against the disposable loopback server must fail; the subsequent correct password must also fail with the expected maximum-attempts message. This tests only the imported implementation's five-attempt, five-minute lockout in one temporary process, not distributed or reverse-proxied client identification, lockout persistence, denial-of-service resistance, SSO/TOTP, or complete authentication security. No real accounts or production users are targeted, and no secrets or bearer tokens are printed.
 
+## Isolated duplicate-listener startup behavior
+
+The optional smoke harness now launches a second DNS process with independent temporary configuration while the original process holds the container's loopback management/DNS listeners. Under `--stop-if-bind-fails`, the duplicate must exit unsuccessfully before timeout and log a bind/address-in-use error. The test then checks that the first console still responds and continues the UDP/TCP DNS and authentication suite. No host port mappings, production server instances, external networks or persisted configurations are involved. This is **not** proof of high availability, cluster failover or safe live production restarts.
+
 ## Docker Compose example — upstream image and safe management binding
 
 The repository includes an **upstream Technitium sample** `docker-compose.yml` that pulls `docker.io/technitium/dns-server:latest`. Running that sample does **not** run GoreeCloud's source changes or regression tests. The image tag is mutable, and release-image provenance and dependency pinning remain open under [issue #8](https://github.com/GoreeCloud/DNS/issues/8). Do not represent this sample as a validated GoreeCloud deployment.
