@@ -24,6 +24,16 @@ GoreeCloud DNS is a development distribution of [Technitium DNS Server](https://
 - Tests: six Python contract tests passed, both edited browser scripts passed Node syntax checks, XML project files parse, and patch whitespace checks pass.
 - No external network access, resolver changes, DNS/DHCP host configurations, VPS services or production deployment were involved in runtime testing. The container and temporary configuration were disposable.
 
+## Repeatable, offline DNS runtime smoke tests
+
+After building the Release application according to the upstream build.md and the pinned dependency in CI, run:
+
+    bash tests/smoke_runtime.sh /absolute/path/to/DnsServerApp/bin/Release
+
+This is an **explicit opt-in** test; it is not automatically invoked by the hosted GitHub Actions build. It requires rootless Podman and its pre-pulled, pinned Microsoft .NET SDK container image. The harness copies build output to a temporary directory; runs the DNS application with portable configuration, no network access, no host port mappings, minimal container bind capability and recursion disabled; verifies the branded HTTP console, stylesheet and a localhost DNS UDP REFUSED response; then stops the server and removes temporary files. The DNS response checks only basic protocol/service behavior, **not external recursion or DNSSEC correctness**.
+
+Never substitute host networking, rootful Podman or a production DNS configuration to make this smoke test pass.
+
 ## Build and release gates
 
 Build requires .NET 10 and the separate sibling TechnitiumLibrary source/build described in the upstream build.md. Basic isolated web and UDP smoke tests now pass; they are not substitutes for real-network DNS, encrypted DNS, DHCP, upgrade, package, browser, assistive-technology, or production deployment tests. DNS and DHCP system settings are deliberately untouched.
