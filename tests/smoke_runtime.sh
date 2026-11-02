@@ -25,6 +25,7 @@ cp -a -- "$release/." "$work/app/"
 cp -- "$(dirname "$0")/smoke_dns_protocol.pl" "$work/smoke_dns_protocol.pl"
 cp -- "$(dirname "$0")/smoke_auth_session.pl" "$work/smoke_auth_session.pl"
 cp -- "$(dirname "$0")/smoke_authoritative.pl" "$work/smoke_authoritative.pl"
+cp -- "$(dirname "$0")/smoke_dnssec.pl" "$work/smoke_dnssec.pl"
 
 cat > "$work/run-smoke.sh" <<'SMOKE'
 #!/usr/bin/env bash

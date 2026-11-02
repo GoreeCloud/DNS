@@ -36,6 +36,12 @@ Never substitute host networking, rootful Podman or a production DNS configurati
 
 The isolated authoritative-zone smoke also creates the reserved test zone `smoke.invalid` and an A record `host.smoke.invalid → 192.0.2.42` through the authenticated local management API; the wire-level UDP and TCP tests verify AA, NOERROR, the expected answer address, and the configured TTL bound. These records exist only in disposable test configuration, never the host resolver or any networked deployment. This is authoritative local-zone correctness evidence, **not DNSSEC, recursive forwarding, negative caching, zone transfer, or external connectivity acceptance**.
 
+## Offline DNSSEC publication probe (pending runtime acceptance)
+
+The optional isolated smoke harness now prepares a disposable primary zone `smoke.invalid`, generates **ephemeral ECDSA P-256** zone-signing keys using the local DNSSEC sign API, and sends EDNS(0) DNS queries with the DO bit set over UDP and TCP. The probe asserts that authoritative DNSKEY (type 48) and A (type 1) answers include covering RRSIG (type 46) records. The generated keys and zone stay inside temporary, network-disabled container state and are not released or published as trust anchors.
+
+**Evidence boundary:** The DNSSEC helper and source-contract tests are syntax-checked, but the new signing runtime scenario has **not passed**; execution was blocked during this development cycle. Presence of DNSKEY/RRSIG alone never proves cryptographic validity, correct NSEC proofs, DNSSEC validation, trust-chain establishment, secure rollover, or real-world interoperability. Do not mark DNSSEC production-ready until permitted isolated runtime tests, independent cryptographic verification, negative-answer proof checks, algorithm/rollover behavior, and operational recovery are all completed.
+
 ## First-run administrator credential safety
 
 **This is a development distribution, not a hardened public deployment.** In a fresh upstream-derived configuration, the administrator account defaults to `admin/admin` when no administrator password configuration is provided. Do not expose the management console or API to an untrusted network with that default. Change credentials before any networked staging, restrict the management listener with `DNS_SERVER_WEB_SERVICE_LOCAL_ADDRESSES` and network policy, and use trusted HTTPS when applicable.
