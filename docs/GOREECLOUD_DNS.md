@@ -20,8 +20,8 @@ GoreeCloud DNS is a development distribution of [Technitium DNS Server](https://
 - Built in isolated rootless Podman using the official Microsoft .NET SDK 10.0.403 image. Recorded image digest: sha256:9c7b6b263d9d4c2e4718e16dae6d75cd8f4b5ccf206f1e7d48a98eb429981b03.
 - Dependency checkout: TechnitiumLibrary commit 4a5a530ac6c4114e72216e0b9c74208a7a5e3fa0. The ByteTree, Net, Security.OTP and DnsServerApp Release builds each completed with zero build warnings and zero build errors.
 - Runtime: started the build inside a network-disabled, temporary container with --portable-app and only the NET_BIND_SERVICE capability. GET / returned HTTP 200 with the GoreeCloud DNS title; GET /css/goreecloud.css returned the expected stylesheet.
-- DNS UDP smoke: a locally generated localhost A-record query returned a valid response with matching transaction ID and RCODE 5 (REFUSED), expected because recursion was explicitly configured Deny. This tests basic DNS transport and permission handling, not resolver correctness under external network access.
-- Tests: six Python contract tests passed, both edited browser scripts passed Node syntax checks, XML project files parse, and patch whitespace checks pass.
+- DNS protocol smoke: locally generated localhost A-record queries over UDP and TCP returned matching transaction IDs and RCODE 5 (REFUSED), expected with recursion configured Deny. The anonymous settings API returned a denial; an explicitly configured missing administrator password file prevented first-run startup. These are limited offline checks, not external recursion or comprehensive authentication acceptance.
+- Tests: fifteen Python contract tests passed locally, both edited browser scripts passed Node syntax checks, project XML parses, and patch whitespace checks pass. GitHub source and .NET build CI are required for each merged change.
 - No external network access, resolver changes, DNS/DHCP host configurations, VPS services or production deployment were involved in runtime testing. The container and temporary configuration were disposable.
 
 ## Repeatable, offline DNS runtime smoke tests
@@ -46,4 +46,4 @@ Do not place password contents in repository files, build logs, CI variables pri
 
 Build requires .NET 10 and the separate sibling TechnitiumLibrary source/build described in the upstream build.md. Basic isolated web, UDP/TCP DNS, and anonymous API boundary smoke tests pass; they are not substitutes for real-network DNS, encrypted DNS, DHCP, upgrade, package, browser, assistive-technology, or production deployment tests. DNS and DHCP system settings are deliberately untouched.
 
-Next: isolated .NET build and protocol verification, threat-model review, GC UI theme/responsive acceptance, packaging and onboarding audit, vulnerability checks, then privacy-preserving DNS capabilities as separate reviewable changes.
+Next: real-network isolated DNS protocol tests, encrypted DNS/DNSSEC/DHCP/cluster acceptance, threat-model review, GC UI theme/responsive/assistive-technology acceptance, packaging and onboarding audit, dependency vulnerability checks, and privacy-preserving DNS capabilities as separate reviewable changes.
