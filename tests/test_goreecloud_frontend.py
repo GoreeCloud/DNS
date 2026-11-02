@@ -67,6 +67,17 @@ class GoreeCloudFrontend(unittest.TestCase):
         self.assertNotIn('--network=host',harness)
         self.assertNotIn('sudo ',harness)
 
+    def test_protocol_and_auth_smoke_contracts(self):
+        script=self.source("tests/smoke_runtime.sh")
+        protocol=self.source("tests/smoke_dns_protocol.pl")
+        self.assertIn("smoke_dns_protocol.pl udp",script)
+        self.assertIn("smoke_dns_protocol.pl tcp",script)
+        self.assertIn("/api/settings/get",script)
+        self.assertIn("invalid-token",script)
+        self.assertIn("FAIL: settings API may expose data without authentication",script)
+        self.assertIn("pack('n', length($question))", protocol)
+        self.assertIn("read_exactly($socket, $length)",protocol)
+
     def test_license_preserved(self):
         self.assertIn("GNU GENERAL PUBLIC LICENSE",self.source("LICENSE"))
         self.assertIn("Copyright (C) 2026  Shreyas Zare",self.source("DnsServerCore/www/js/main.js"))
