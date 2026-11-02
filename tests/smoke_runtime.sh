@@ -33,19 +33,32 @@ cat > "$work/run-smoke.sh" <<'SMOKE'
 set -euo pipefail
 cd /work/app
 
-# Verify that an explicitly requested, unavailable secret never enables admin/admin.
-# This negative case uses independent disposable state before the healthy server starts.
-mkdir -p /work/missing-admin-config
-failed_status=0
-timeout 12s env DNS_SERVER_ADMIN_PASSWORD_FILE=/work/absent-admin-password-file \
-    dotnet DnsServerApp.dll --stop-if-bind-fails --portable-app /work/missing-admin-config \
-    > /work/missing-admin.log 2>&1 || failed_status=$?
-if [ "$failed_status" -eq 124 ] ||
-   ! grep -Fq "Could not initialize administrator credentials from DNS_SERVER_ADMIN_PASSWORD_FILE." /work/missing-admin.log; then
-    echo "FAIL: missing administrator secret did not stop first-run initialization" >&2
-    exit 1
-fi
-echo "PASS: missing admin password file fails closed"
+# Every explicitly configured invalid secret must fail before first-run auth is saved.
+# Keep each case in independent, disposable state. Never start the main server first.
+: > /work/empty-admin-password-file
+printf '%s' '    ' > /work/whitespace-admin-password-file
+for scenario in missing empty whitespace; do
+    case "$scenario" in
+        missing) secret_file=/work/absent-admin-password-file ;;
+        empty) secret_file=/work/empty-admin-password-file ;;
+        whitespace) secret_file=/work/whitespace-admin-password-file ;;
+    esac
+    test -n "$secret_file" || { echo "FAIL: invalid secret test setup"; exit 1; }
+    test "$scenario" != missing || test ! -e "$secret_file" || { echo "FAIL: missing-secret case exists"; exit 1; }
+    mkdir -p "/work/$scenario-admin-config"
+    failed_status=0
+    timeout 12s env DNS_SERVER_ADMIN_PASSWORD_FILE="$secret_file" \
+        dotnet DnsServerApp.dll --stop-if-bind-fails --portable-app "/work/$scenario-admin-config" \
+        > "/work/$scenario-admin.log" 2>&1 || failed_status=$?
+    if [ "$failed_status" -eq 0 ] || [ "$failed_status" -eq 124 ] ||
+       [ "$failed_status" -eq 125 ] || [ "$failed_status" -eq 126 ] ||
+       [ "$failed_status" -eq 127 ] || [ "$failed_status" -eq 137 ] ||
+       ! grep -Fq "Could not initialize administrator credentials from DNS_SERVER_ADMIN_PASSWORD_FILE." "/work/$scenario-admin.log"; then
+        echo "FAIL: $scenario administrator password file did not fail closed (exit $failed_status)" >&2
+        exit 1
+    fi
+    echo "PASS: $scenario admin password file fails closed"
+done
 
 umask 077
 od -An -N24 -tx1 /dev/urandom | tr -d '[:space:]' > /work/admin-password
