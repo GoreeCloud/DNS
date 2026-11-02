@@ -34,8 +34,16 @@ This is an **explicit opt-in** test; it is not automatically invoked by the host
 
 Never substitute host networking, rootful Podman or a production DNS configuration to make this smoke test pass.
 
+## First-run administrator credential safety
+
+**This is a development distribution, not a hardened public deployment.** In a fresh upstream-derived configuration, the administrator account defaults to `admin/admin` when no administrator password configuration is provided. Do not expose the management console or API to an untrusted network with that default. Change credentials before any networked staging, restrict the management listener with `DNS_SERVER_WEB_SERVICE_LOCAL_ADDRESSES` and network policy, and use trusted HTTPS when applicable.
+
+For a *new* configuration, prefer a strong, access-restricted secret file specified by `DNS_SERVER_ADMIN_PASSWORD_FILE`. Confirm that it is readable **inside the container or service identity** and contains a nonempty first line. The GoreeCloud security change prevents an explicit missing, unreadable, or empty secret file from falling back to the known password; startup must fail closed instead. `DNS_SERVER_ADMIN_PASSWORD` remains an upstream-supported environment override, but the secret-file mechanism avoids unnecessarily placing the password directly in process environment. Existing persisted `auth.config` is loaded separately and is **not automatically reinitialized** from these first-run variables.
+
+Do not place password contents in repository files, build logs, CI variables printed to output, command arguments, or documentation. Review upstream password-reset mechanisms before using them in an authorized, isolated recovery. The offline smoke test covers the missing-secret first-run failure path but not all authentication, SSO, TOTP, rate limiting, or privilege-management behaviors.
+
 ## Build and release gates
 
-Build requires .NET 10 and the separate sibling TechnitiumLibrary source/build described in the upstream build.md. Basic isolated web and UDP smoke tests now pass; they are not substitutes for real-network DNS, encrypted DNS, DHCP, upgrade, package, browser, assistive-technology, or production deployment tests. DNS and DHCP system settings are deliberately untouched.
+Build requires .NET 10 and the separate sibling TechnitiumLibrary source/build described in the upstream build.md. Basic isolated web, UDP/TCP DNS, and anonymous API boundary smoke tests pass; they are not substitutes for real-network DNS, encrypted DNS, DHCP, upgrade, package, browser, assistive-technology, or production deployment tests. DNS and DHCP system settings are deliberately untouched.
 
 Next: isolated .NET build and protocol verification, threat-model review, GC UI theme/responsive acceptance, packaging and onboarding audit, vulnerability checks, then privacy-preserving DNS capabilities as separate reviewable changes.
