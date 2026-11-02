@@ -42,6 +42,10 @@ The optional isolated smoke harness now prepares a disposable primary zone `smok
 
 **Evidence boundary:** The DNSSEC helper and source-contract tests are syntax-checked, but the new signing runtime scenario has **not passed**; execution was blocked during this development cycle. Presence of DNSKEY/RRSIG alone never proves cryptographic validity, correct NSEC proofs, DNSSEC validation, trust-chain establishment, secure rollover, or real-world interoperability. Do not mark DNSSEC production-ready until permitted isolated runtime tests, independent cryptographic verification, negative-answer proof checks, algorithm/rollover behavior, and operational recovery are all completed.
 
+## Authoritative negative-answer smoke
+
+The same opt-in isolated harness now verifies **negative authoritative responses** from the disposable zone on both UDP and TCP: `absent.smoke.invalid` A queries return NXDOMAIN (RCODE 3) with an SOA in the authority section, while `host.smoke.invalid` AAAA queries return NOERROR with no answers (NODATA) and an authoritative SOA. Both tests require the authoritative-answer flag and a matching transaction ID. This does not verify DNSSEC denial-of-existence proofs, recursive caching behavior, zone transfers, or external network interoperability.
+
 ## First-run administrator credential safety
 
 **This is a development distribution, not a hardened public deployment.** In a fresh upstream-derived configuration, the administrator account defaults to `admin/admin` when no administrator password configuration is provided. Do not expose the management console or API to an untrusted network with that default. Change credentials before any networked staging, restrict the management listener with `DNS_SERVER_WEB_SERVICE_LOCAL_ADDRESSES` and network policy, and use trusted HTTPS when applicable.
@@ -49,6 +53,16 @@ The optional isolated smoke harness now prepares a disposable primary zone `smok
 For a *new* configuration, prefer a strong, access-restricted secret file specified by `DNS_SERVER_ADMIN_PASSWORD_FILE`. Confirm that it is readable **inside the container or service identity** and contains a nonempty first line. The GoreeCloud security change prevents an explicit missing, unreadable, or empty secret file from falling back to the known password; startup must fail closed instead. `DNS_SERVER_ADMIN_PASSWORD` remains an upstream-supported environment override, but the secret-file mechanism avoids unnecessarily placing the password directly in process environment. Existing persisted `auth.config` is loaded separately and is **not automatically reinitialized** from these first-run variables.
 
 Do not place password contents in repository files, build logs, CI variables printed to output, command arguments, or documentation. Review upstream password-reset mechanisms before using them in an authorized, isolated recovery. The upstream-derived login endpoint currently accepts both GET and POST and reads credentials from query or form parameters. **Use POST form bodies over trusted HTTPS for authenticated network deployments; never put passwords in URL query strings**, which may be retained in browser history, reverse-proxy access logs, or monitoring systems. The isolated loopback-only test uses a POST form read from a temporary protected file; this documents safer client behavior but does not disable the inherited GET route. The offline smoke test covers the missing-secret first-run failure path but not all authentication, SSO, TOTP, rate limiting, or privilege-management behaviors.
+
+## Local administrator login lockout smoke
+
+The opt-in, rootless, `--network=none` harness now checks the existing source-IP login limiter **after** all other authenticated API checks. Five bounded invalid password attempts against the disposable loopback server must fail; the subsequent correct password must also fail with the expected maximum-attempts message. This tests only the imported implementation's five-attempt, five-minute lockout in one temporary process, not distributed or reverse-proxied client identification, lockout persistence, denial-of-service resistance, SSO/TOTP, or complete authentication security. No real accounts or production users are targeted, and no secrets or bearer tokens are printed.
+
+## Docker Compose example — upstream image and safe management binding
+
+The repository includes an **upstream Technitium sample** `docker-compose.yml` that pulls `docker.io/technitium/dns-server:latest`. Running that sample does **not** run GoreeCloud's source changes or regression tests. The image tag is mutable, and release-image provenance and dependency pinning remain open under [issue #8](https://github.com/GoreeCloud/DNS/issues/8). Do not represent this sample as a validated GoreeCloud deployment.
+
+The example's plaintext HTTP management port 5380 is now **bound to the Docker host loopback address** (`127.0.0.1:5380:5380/tcp`) rather than all host interfaces. This limits direct external exposure on normal host networking, but is not a substitute for unique first-run credentials, least-privilege access, TLS and firewall review. Do not publish, reverse-proxy, or forward the management service to an untrusted network without a separately verified secure configuration. DNS port 53 is exposed by the upstream example for its intended resolver function; assess public recursion/ACL, application trust and network policy before any deployment. No running Compose service was modified.
 
 ## Build and release gates
 

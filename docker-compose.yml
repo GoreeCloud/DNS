@@ -1,3 +1,8 @@
+# Upstream Technitium sample: this pulls an upstream image, not GoreeCloud DNS.
+# SECURITY: the HTTP management console binds only to the host's loopback interface.
+# Before any networked use, provide unique admin credentials, a trusted TLS entry
+# point, and a reviewed/pinned image. This example is not production-certified.
+# See docs/GOREECLOUD_DNS.md and issue #8 for remaining release-image gates.
 services:
   dns-server:
     container_name: dns-server
@@ -6,7 +11,7 @@ services:
     # For DHCP deployments, use "host" network mode and remove all the port mappings, including the ports array by commenting them
     # network_mode: "host"
     ports:
-      - "5380:5380/tcp" #DNS web console (HTTP)
+      - "127.0.0.1:5380:5380/tcp" #DNS web console (HTTP, host loopback only)
       # - "53443:53443/tcp" #DNS web console (HTTPS)
       - "53:53/udp" #DNS service
       - "53:53/tcp" #DNS service

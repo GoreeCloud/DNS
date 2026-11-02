@@ -25,6 +25,8 @@ cp -a -- "$release/." "$work/app/"
 cp -- "$(dirname "$0")/smoke_dns_protocol.pl" "$work/smoke_dns_protocol.pl"
 cp -- "$(dirname "$0")/smoke_auth_session.pl" "$work/smoke_auth_session.pl"
 cp -- "$(dirname "$0")/smoke_authoritative.pl" "$work/smoke_authoritative.pl"
+cp -- "$(dirname "$0")/smoke_authoritative_negative.pl" "$work/smoke_authoritative_negative.pl"
+cp -- "$(dirname "$0")/smoke_login_lockout.pl" "$work/smoke_login_lockout.pl"
 cp -- "$(dirname "$0")/smoke_dnssec.pl" "$work/smoke_dnssec.pl"
 
 cat > "$work/run-smoke.sh" <<'SMOKE'
@@ -96,6 +98,7 @@ case "$status_code" in
 esac
 
 perl /work/smoke_auth_session.pl
+perl /work/smoke_login_lockout.pl
 
 echo "PASS: isolated runtime smoke tests"
 SMOKE
