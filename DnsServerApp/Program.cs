@@ -109,7 +109,7 @@ namespace DnsServerApp
                 else
                     serviceUrl = $"http://{Environment.MachineName.ToLowerInvariant()}:{service.WebServiceHttpPort}";
 
-                Console.WriteLine($"Technitium DNS Server v{service.Version} was started successfully.\r\nStarted on: {service.UpTimeStamp.ToLocalTime()} Local Time\r\nUsing config folder: {service.ConfigFolder}\r\n\r\nNote: Open {serviceUrl} in web browser to access web console.\r\n\r\nPress [CTRL + C] to stop...");
+                Console.WriteLine($"GoreeCloud DNS (based on Technitium DNS Server) upstream v{service.Version} was started successfully.\r\nStarted on: {service.UpTimeStamp.ToLocalTime()} Local Time\r\nUsing config folder: {service.ConfigFolder}\r\n\r\nNote: Open {serviceUrl} in web browser to access web console.\r\n\r\nPress [CTRL + C] to stop...");
 
                 waitHandle.WaitOne();
             }
@@ -119,12 +119,12 @@ namespace DnsServerApp
             }
             finally
             {
-                Console.WriteLine("\r\nTechnitium DNS Server is stopping...");
+                Console.WriteLine("\r\nGoreeCloud DNS is stopping...");
 
                 service?.Dispose();
                 psr?.Dispose();
 
-                Console.WriteLine("Technitium DNS Server was stopped successfully.");
+                Console.WriteLine("GoreeCloud DNS was stopped successfully.");
                 exitHandle.Set();
             }
         }

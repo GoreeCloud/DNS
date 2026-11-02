@@ -43,6 +43,21 @@ class GoreeCloudFrontend(unittest.TestCase):
         self.assertIn("GoreeCloud DNS",product)
         self.assertIn("Technitium DNS Server",product)
 
+    def test_cli_and_image_provenance(self):
+        cli=self.source("DnsServerApp/Program.cs")
+        docker=self.source("Dockerfile")
+        self.assertIn("GoreeCloud DNS (based on Technitium DNS Server)", cli)
+        self.assertIn('org.opencontainers.image.title="GoreeCloud DNS"', docker)
+        self.assertIn('org.opencontainers.image.vendor="GoreeCloud"', docker)
+        self.assertIn('org.opencontainers.image.licenses="GPL-3.0-or-later"', docker)
+        self.assertIn("https://github.com/GoreeCloud/DNS",docker)
+
+    def test_ci_pins_upstream_dependency(self):
+        workflow=self.source(".github/workflows/goreecloud-static-checks.yml")
+        self.assertIn("4a5a530ac6c4114e72216e0b9c74208a7a5e3fa0",workflow)
+        self.assertIn("mcr.microsoft.com/dotnet/sdk@sha256:",workflow)
+        self.assertIn("dotnet build DnsServerApp/DnsServerApp.csproj",workflow)
+
     def test_license_preserved(self):
         self.assertIn("GNU GENERAL PUBLIC LICENSE",self.source("LICENSE"))
         self.assertIn("Copyright (C) 2026  Shreyas Zare",self.source("DnsServerCore/www/js/main.js"))
