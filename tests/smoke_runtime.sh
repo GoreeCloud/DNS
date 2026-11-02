@@ -28,6 +28,21 @@ cat > "$work/run-smoke.sh" <<'SMOKE'
 #!/usr/bin/env bash
 set -euo pipefail
 cd /work/app
+
+# Verify that an explicitly requested, unavailable secret never enables admin/admin.
+# This negative case uses independent disposable state before the healthy server starts.
+mkdir -p /work/missing-admin-config
+failed_status=0
+timeout 12s env DNS_SERVER_ADMIN_PASSWORD_FILE=/work/absent-admin-password-file \
+    dotnet DnsServerApp.dll --stop-if-bind-fails --portable-app /work/missing-admin-config \
+    > /work/missing-admin.log 2>&1 || failed_status=$?
+if [ "$failed_status" -eq 124 ] ||
+   ! grep -Fq "Could not initialize administrator credentials from DNS_SERVER_ADMIN_PASSWORD_FILE." /work/missing-admin.log; then
+    echo "FAIL: missing administrator secret did not stop first-run initialization" >&2
+    exit 1
+fi
+echo "PASS: missing admin password file fails closed"
+
 dotnet DnsServerApp.dll --stop-if-bind-fails --portable-app /work/config > /work/service.log 2>&1 &
 service_pid=$!
 trap 'kill "$service_pid" 2>/dev/null || true; wait "$service_pid" 2>/dev/null || true' EXIT
