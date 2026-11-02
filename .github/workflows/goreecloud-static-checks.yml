@@ -24,6 +24,7 @@ jobs:
         run: |
           bash -n tests/smoke_runtime.sh
           perl -c tests/smoke_dns_protocol.pl
+          perl -c tests/smoke_edns_version.pl
           perl -c tests/smoke_auth_session.pl
           perl -c tests/smoke_authoritative.pl
           perl -c tests/smoke_authoritative_negative.pl
