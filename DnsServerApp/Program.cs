@@ -116,6 +116,8 @@ namespace DnsServerApp
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
+                // A fatal startup error must not be reported as a successful service exit.
+                Environment.ExitCode = 1;
             }
             finally
             {

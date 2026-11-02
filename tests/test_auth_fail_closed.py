@@ -20,9 +20,26 @@ class AdminPasswordFileSecurity(unittest.TestCase):
 
     def test_offline_negative_runtime_scenario_is_documented(self):
         smoke = (ROOT / "tests/smoke_runtime.sh").read_text(encoding="utf-8")
-        self.assertIn("DNS_SERVER_ADMIN_PASSWORD_FILE=/work/absent-admin-password-file", smoke)
-        self.assertIn("missing admin password file fails closed", smoke)
+        self.assertIn("secret_file=/work/absent-admin-password-file", smoke)
+        self.assertIn("secret_file=/work/empty-admin-password-file", smoke)
+        self.assertIn("secret_file=/work/whitespace-admin-password-file", smoke)
+        self.assertIn("for scenario in missing empty whitespace; do", smoke)
+        self.assertIn('DNS_SERVER_ADMIN_PASSWORD_FILE="$secret_file"', smoke)
+        self.assertIn('failed_status" -eq 0', smoke)
+        self.assertIn('failed_status" -eq 124', smoke)
+        self.assertIn("Could not initialize administrator credentials from DNS_SERVER_ADMIN_PASSWORD_FILE.", smoke)
+        self.assertIn("admin password file fails closed", smoke)
         self.assertIn("--network=none", smoke)
+
+    def test_startup_failure_reports_nonzero_exit_status(self):
+        entrypoint = (ROOT / "DnsServerApp/Program.cs").read_text(encoding="utf-8")
+        self.assertIn("catch (Exception ex)", entrypoint)
+        start = entrypoint.index("catch (Exception ex)")
+        failure_path = entrypoint[start:entrypoint.index("finally", start)]
+        self.assertIn("Environment.ExitCode = 1;", failure_path)
+        smoke = (ROOT / "tests/smoke_runtime.sh").read_text(encoding="utf-8")
+        self.assertIn('failed_status" -eq 0', smoke)
+        self.assertIn('failed_status" -eq 124', smoke)
 
     def test_isolated_bootstrap_and_session_lifecycle_contract(self):
         harness = (ROOT / "tests/smoke_runtime.sh").read_text(encoding="utf-8")
