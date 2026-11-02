@@ -36,6 +36,8 @@ Never substitute host networking, rootful Podman or a production DNS configurati
 
 The isolated authoritative-zone smoke also creates the reserved test zone `smoke.invalid` and an A record `host.smoke.invalid → 192.0.2.42` through the authenticated local management API; the wire-level UDP and TCP tests verify AA, NOERROR, the expected answer address, and the configured TTL bound. These records exist only in disposable test configuration, never the host resolver or any networked deployment. This is authoritative local-zone correctness evidence, **not DNSSEC, recursive forwarding, negative caching, zone transfer, or external connectivity acceptance**.
 
+The same opt-in isolated harness now verifies **negative authoritative responses** from the disposable zone on both UDP and TCP: `absent.smoke.invalid` A queries return NXDOMAIN (RCODE 3) with an SOA in the authority section, while `host.smoke.invalid` AAAA queries return NOERROR with no answers (NODATA) and an authoritative SOA. Both tests require the authoritative-answer flag and a matching transaction ID. This does not verify DNSSEC denial-of-existence proofs, recursive caching behavior, zone transfers, or external network interoperability.
+
 ## First-run administrator credential safety
 
 **This is a development distribution, not a hardened public deployment.** In a fresh upstream-derived configuration, the administrator account defaults to `admin/admin` when no administrator password configuration is provided. Do not expose the management console or API to an untrusted network with that default. Change credentials before any networked staging, restrict the management listener with `DNS_SERVER_WEB_SERVICE_LOCAL_ADDRESSES` and network policy, and use trusted HTTPS when applicable.
