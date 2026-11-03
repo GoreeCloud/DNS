@@ -65,6 +65,22 @@ def make_response(question, mutation):
         response[13] = ord("x")
     elif mutation == "id":
         response[0] ^= 1
+    elif mutation == "answers":
+        struct.pack_into("!H", response, 6, 1)
+    elif mutation == "authority":
+        struct.pack_into("!H", response, 8, 1)
+    elif mutation == "additional":
+        struct.pack_into("!H", response, 10, 1)
+    elif mutation == "trailing":
+        response.append(0)
+    elif mutation == "truncated_question":
+        response.pop()
+    elif mutation == "wrong_opcode":
+        response[2] |= 0x08
+    elif mutation == "truncated_flag":
+        response[2] |= 0x02
+    elif mutation == "not_refused":
+        response[3] &= 0xF0
     return bytes(response)
 
 
