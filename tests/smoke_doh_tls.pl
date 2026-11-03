@@ -149,6 +149,36 @@ run_doh('doh-get', 'GET') or die "FAIL: verified local DoH GET request failed\n"
 check_response('doh-get');
 print "PASS: DoH GET verified TLS hostname and authoritative A response\n";
 
+sub expect_http_error {
+    my ($name, $expected_code, @options) = @_;
+    my @args = ('curl', '--silent', '--show-error', '--noproxy', '*',
+        '--max-time', '5', '--cacert', '/work/doh-cert.pem',
+        '--resolve', 'localhost:18443:127.0.0.1',
+        '--header', 'Accept: application/dns-message',
+        '--dump-header', "/work/$name.headers",
+        '--output', "/work/$name.response",
+        @options, 'https://localhost:18443/dns-query');
+    system(@args) == 0 or die "FAIL: $name HTTPS transport failed\n";
+    open my $headers, '<', "/work/$name.headers"
+        or die "FAIL: $name status headers missing\n";
+    local $/;
+    my $raw_headers = <$headers>;
+    close $headers;
+    $raw_headers =~ m!^HTTP/(?:1\.\d|2) $expected_code\b!m
+        or die "FAIL: $name expected HTTP $expected_code\n";
+}
+expect_http_error('doh-missing-dns', 400);
+expect_http_error('doh-invalid-dns-base64', 400,
+    '--get', '--data-urlencode', 'dns=not*base64');
+expect_http_error('doh-invalid-post-media', 415,
+    '--header', 'Content-Type: text/plain',
+    '--data-binary', '@/work/doh-query.bin');
+print "PASS: DoH missing/malformed GET and wrong POST media type rejected\n";
+run_doh('doh-valid-after-errors', 'POST')
+    or die "FAIL: DoH valid request failed after invalid requests\n";
+check_response('doh-valid-after-errors');
+print "PASS: DoH valid request still succeeds after invalid requests\n";
+
 my @bad_host = ('curl', '--silent', '--fail', '--noproxy', '*', '--max-time', '4',
     '--cacert', '/work/doh-cert.pem',
     '--resolve', 'wrong-host.invalid:18443:127.0.0.1',
