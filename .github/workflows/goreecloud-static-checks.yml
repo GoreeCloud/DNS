@@ -28,6 +28,8 @@ jobs:
           perl -c tests/smoke_auth_session.pl
           perl -c tests/smoke_authoritative.pl
           perl -c tests/smoke_authoritative_negative.pl
+          perl -c tests/smoke_doh_tls.pl
+          perl -c tests/smoke_dot_tls.pl
           perl -c tests/smoke_login_lockout.pl
       - name: Check committed patch whitespace
         run: git diff --check HEAD^ HEAD

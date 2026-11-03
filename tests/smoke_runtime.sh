@@ -27,6 +27,8 @@ cp -- "$(dirname "$0")/smoke_edns_version.pl" "$work/smoke_edns_version.pl"
 cp -- "$(dirname "$0")/smoke_auth_session.pl" "$work/smoke_auth_session.pl"
 cp -- "$(dirname "$0")/smoke_authoritative.pl" "$work/smoke_authoritative.pl"
 cp -- "$(dirname "$0")/smoke_authoritative_negative.pl" "$work/smoke_authoritative_negative.pl"
+cp -- "$(dirname "$0")/smoke_doh_tls.pl" "$work/smoke_doh_tls.pl"
+cp -- "$(dirname "$0")/smoke_dot_tls.pl" "$work/smoke_dot_tls.pl"
 cp -- "$(dirname "$0")/smoke_login_lockout.pl" "$work/smoke_login_lockout.pl"
 
 cat > "$work/run-smoke.sh" <<'SMOKE'
