@@ -8,9 +8,14 @@ my $protocol = shift @ARGV // '';
 die "Usage: perl smoke_dns_protocol.pl udp|tcp\n" unless $protocol eq 'udp' || $protocol eq 'tcp';
 die "Unexpected arguments\n" if @ARGV;
 
+# Permit CI's ephemeral loopback mock port; the isolated runtime keeps port 53.
+my $port = $ENV{GOREECLOUD_DNS_SMOKE_PORT} // 53;
+$port =~ /\A[1-9][0-9]{0,4}\z/ && $port <= 65535
+    or die "FAIL: invalid DNS smoke port\n";
+
 my $socket = IO::Socket::INET->new(
     PeerAddr => '127.0.0.1',
-    PeerPort => 53,
+    PeerPort => $port,
     Proto    => $protocol,
     Timeout  => 4
 ) or die "FAIL: $protocol DNS socket unavailable: $!\n";
