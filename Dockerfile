@@ -1,23 +1,27 @@
 # syntax=docker.io/docker/dockerfile:1
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:de0ee358cdd672f7017a003bed21e9ac9ed48a27c922a59b18175b6e82fa7fee
 
-# Add the MS repo to install `libmsquic` to support DNS-over-QUIC:
-ADD --link https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb /
-RUN <<HEREDOC
-  dpkg -i packages-microsoft-prod.deb && rm packages-microsoft-prod.deb
-  # `dnsutils` added to include the `dig` command for troubleshooting:
-  apt-get update && apt-get install -y libmsquic dnsutils iputils-ping curl
-  apt-get clean -y && rm -rf /var/lib/apt/lists/*
-
-  # `/etc/dns` is expected to exist the default directory for persisting state:
-  # (Users should volume mount to this location or modify the `CMD` of their container)
-  mkdir /etc/dns
-HEREDOC
+# Pin the Ubuntu 24.04 Microsoft repo bootstrap bytes (verified package version 1.2-ubuntu24.04).
+# Review and update this checksum deliberately when the vendor changes the package.
+# This does not pin `apt-get` dependencies or independently attest package provenance.
+ADD https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb /
+# Verify the immutable bootstrap checksum *before* executing any package scripts.
+# Include `dig` for isolated troubleshooting; OS package versions are not yet pinned.
+# Persist DNS config at /etc/dns (mount a private volume for any deployment).
+RUN set -eu; \
+    echo 'c13f01ac7c3001b51a9281d40dde666db5e037e05512840c319832f7852bfec4  packages-microsoft-prod.deb' | sha256sum --check --status; \
+    dpkg -i packages-microsoft-prod.deb; \
+    rm packages-microsoft-prod.deb; \
+    apt-get update; \
+    apt-get install -y libmsquic dnsutils iputils-ping curl; \
+    apt-get clean -y; \
+    rm -rf /var/lib/apt/lists/*; \
+    mkdir -p /etc/dns
 
 # Project is built outside of Docker, copy over the build directory:
 WORKDIR /opt/technitium/dns
-COPY --link ./DnsServerApp/bin/Release/publish /opt/technitium/dns
+COPY ./DnsServerApp/bin/Release/publish /opt/technitium/dns
 
 ENTRYPOINT ["/usr/bin/dotnet", "/opt/technitium/dns/DnsServerApp.dll"]
 CMD ["/etc/dns"]
