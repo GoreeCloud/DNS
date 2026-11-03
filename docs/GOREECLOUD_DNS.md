@@ -43,6 +43,14 @@ The same opt-in isolated harness now verifies **negative authoritative responses
 
 The rootless, network-disabled DNS protocol harness checks EDNS(0) error handling by sending a bounded valid DNS query with an unsupported **EDNS version 1** OPT record over UDP and TCP. The response must preserve the transaction ID, include exactly one OPT record, advertise EDNS version 0, and encode **BADVERS (extended DNS response code 16)**. Both wire checks passed locally against the disposable loopback DNS listener. This verifies one unsupported-version boundary, **not** broad EDNS option parsing, truncation, amplification resistance, malformed-packet fuzzing, DNSSEC validation, or public-network interoperability.
 
+## Isolated encrypted DNS smoke (DoH and DoT)
+
+The opt-in, rootless `--network=none` runtime harness now generates a one-day, self-signed **localhost-only test certificate** and a disposable PKCS#12 file protected by a random secret stored in a temporary permission-restricted file. Through the already authenticated loopback settings API, it enables direct **DNS-over-HTTPS on TCP 18443** and **DNS-over-TLS on TCP 1853** inside the test container. Neither listener is published to the Docker/Podman host.
+
+The wire probes use an independently configured TLS client with the generated certificate as a test trust anchor. DoH GET (base64url DNS parameter) and POST (`application/dns-message`) must each return HTTP 200, the expected DNS media type and the authoritative test A record. DoT must complete a verified TLS hostname handshake, return correctly framed DNS data and the same authoritative answer. Both clients also require a **TLS hostname mismatch to fail**. All keys, credentials, zones and test output are discarded with the temporary container workspace.
+
+These checks establish only **bounded local functional TLS interoperability**. They do not certify a public certificate chain, certificate renewal/revocation, ALPN/HTTP/2/HTTP/3 behavior, reverse proxies, DoQ, network ACL robustness, load, malformed-message handling or production transport hardening. Hosted CI syntax- and source-checks the helper scripts; the full isolated runtime test remains an explicit local opt-in and must not be inferred from GitHub CI alone.
+
 ## First-run administrator credential safety
 
 **This is a development distribution, not a hardened public deployment.** In a fresh upstream-derived configuration, the administrator account defaults to `admin/admin` when no administrator password configuration is provided. Do not expose the management console or API to an untrusted network with that default. Change credentials before any networked staging, restrict the management listener with `DNS_SERVER_WEB_SERVICE_LOCAL_ADDRESSES` and network policy, and use trusted HTTPS when applicable.
