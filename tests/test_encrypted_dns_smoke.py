@@ -37,6 +37,14 @@ class EncryptedDnsSmokeContracts(unittest.TestCase):
         self.assertNotIn("'--insecure'", self.doh)
         self.assertNotIn("'-k'", self.doh)
 
+    def test_doh_rejects_bad_requests_without_disabling_valid_queries(self):
+        self.assertIn("expect_http_error('doh-missing-dns', 400)", self.doh)
+        self.assertIn("expect_http_error('doh-invalid-dns-base64', 400", self.doh)
+        self.assertIn("expect_http_error('doh-invalid-post-media', 415", self.doh)
+        self.assertIn("'Content-Type: text/plain'", self.doh)
+        self.assertIn("run_doh('doh-valid-after-errors', 'POST')", self.doh)
+        self.assertIn("check_response('doh-valid-after-errors')", self.doh)
+
     def test_dot_requires_hostname_validation_and_framed_dns(self):
         self.assertIn("enableDnsOverTls=true", self.doh)
         self.assertIn("dnsOverTlsPort=1853", self.doh)

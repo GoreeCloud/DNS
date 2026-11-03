@@ -49,6 +49,8 @@ The opt-in, rootless `--network=none` runtime harness now generates a one-day, s
 
 The wire probes use an independently configured TLS client with the generated certificate as a test trust anchor. DoH GET (base64url DNS parameter) and POST (`application/dns-message`) must each return HTTP 200, the expected DNS media type and the authoritative test A record. DoT must complete a verified TLS hostname handshake, return correctly framed DNS data and the same authoritative answer. Both clients also require a **TLS hostname mismatch to fail**. All keys, credentials, zones and test output are discarded with the temporary container workspace.
 
+The DoH test also checks request rejection under verified HTTPS: missing or malformed GET `dns` parameters must return HTTP **400**, and a POST with an unsupported media type must return HTTP **415**. A valid authenticated-TLS DoH POST must still resolve the disposable A record immediately afterward. These checks are narrow input-validation contracts, **not HTTP or DNS parser fuzzing**.
+
 These checks establish only **bounded local functional TLS interoperability**. They do not certify a public certificate chain, certificate renewal/revocation, ALPN/HTTP/2/HTTP/3 behavior, reverse proxies, DoQ, network ACL robustness, load, malformed-message handling or production transport hardening. Hosted CI syntax- and source-checks the helper scripts; the full isolated runtime test remains an explicit local opt-in and must not be inferred from GitHub CI alone.
 
 ## First-run administrator credential safety
