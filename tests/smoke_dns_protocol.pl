@@ -58,7 +58,7 @@ if ($protocol eq 'udp') {
 alarm 0;
 
 length($response) >= 12 or die "FAIL: malformed $protocol DNS response\n";
-my ($id, $flags, $questions, $answers) = unpack('n4', $response);
+my ($id, $flags, $questions, $answers, $authority, $additional) = unpack('n6', $response);
 $id == $query_id or die "FAIL: $protocol DNS transaction ID mismatch\n";
 ($flags & 0x8000) or die "FAIL: $protocol DNS response bit missing\n";
 ($flags & 0x7800) == 0 or die "FAIL: $protocol DNS response opcode changed\n";
@@ -72,5 +72,9 @@ length($response) >= 12 + length($expected_question)
 substr($response, 12, length($expected_question)) eq $expected_question
     or die "FAIL: $protocol DNS response question changed\n";
 $answers == 0 or die "FAIL: $protocol DNS refusal unexpectedly contains answers\n";
+$authority == 0 or die "FAIL: $protocol DNS refusal unexpectedly contains authority records\n";
+$additional == 0 or die "FAIL: $protocol DNS refusal unexpectedly contains additional records\n";
+length($response) == 12 + length($expected_question)
+    or die "FAIL: $protocol DNS refusal has unexpected trailing bytes\n";
 ($flags & 15) == 5 or die "FAIL: expected $protocol DNS REFUSED (recursion is denied)\n";
 print "PASS: $protocol DNS returned REFUSED under explicit recursion-denied configuration\n";
