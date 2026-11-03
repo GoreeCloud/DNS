@@ -61,6 +61,9 @@ system('perl', '/work/smoke_authoritative.pl', $header_path) == 0
 system('perl', '/work/smoke_authoritative_negative.pl') == 0
     or die "FAIL: isolated authoritative negative DNS verification failed\n";
 
+system('perl', '/work/smoke_dnssec.pl', $header_path) == 0
+    or die "FAIL: isolated DNSSEC publication verification failed\n";
+
 my $logout = api('logout', '--header', '@' . $header_path, "$root/api/user/logout");
 ($logout->{status} // '') eq 'ok'
     or die "FAIL: logout was unsuccessful\n";
