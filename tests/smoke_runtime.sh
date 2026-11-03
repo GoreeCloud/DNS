@@ -23,6 +23,7 @@ trap 'rm -rf -- "$work"' EXIT
 mkdir -p "$work/app" "$work/config"
 cp -a -- "$release/." "$work/app/"
 cp -- "$(dirname "$0")/smoke_dns_protocol.pl" "$work/smoke_dns_protocol.pl"
+cp -- "$(dirname "$0")/smoke_edns_version.pl" "$work/smoke_edns_version.pl"
 cp -- "$(dirname "$0")/smoke_auth_session.pl" "$work/smoke_auth_session.pl"
 cp -- "$(dirname "$0")/smoke_authoritative.pl" "$work/smoke_authoritative.pl"
 cp -- "$(dirname "$0")/smoke_authoritative_negative.pl" "$work/smoke_authoritative_negative.pl"
@@ -34,19 +35,32 @@ cat > "$work/run-smoke.sh" <<'SMOKE'
 set -euo pipefail
 cd /work/app
 
-# Verify that an explicitly requested, unavailable secret never enables admin/admin.
-# This negative case uses independent disposable state before the healthy server starts.
-mkdir -p /work/missing-admin-config
-failed_status=0
-timeout 12s env DNS_SERVER_ADMIN_PASSWORD_FILE=/work/absent-admin-password-file \
-    dotnet DnsServerApp.dll --stop-if-bind-fails --portable-app /work/missing-admin-config \
-    > /work/missing-admin.log 2>&1 || failed_status=$?
-if [ "$failed_status" -eq 124 ] ||
-   ! grep -Fq "Could not initialize administrator credentials from DNS_SERVER_ADMIN_PASSWORD_FILE." /work/missing-admin.log; then
-    echo "FAIL: missing administrator secret did not stop first-run initialization" >&2
-    exit 1
-fi
-echo "PASS: missing admin password file fails closed"
+# Every explicitly configured invalid secret must fail before first-run auth is saved.
+# Keep each case in independent, disposable state. Never start the main server first.
+: > /work/empty-admin-password-file
+printf '%s' '    ' > /work/whitespace-admin-password-file
+for scenario in missing empty whitespace; do
+    case "$scenario" in
+        missing) secret_file=/work/absent-admin-password-file ;;
+        empty) secret_file=/work/empty-admin-password-file ;;
+        whitespace) secret_file=/work/whitespace-admin-password-file ;;
+    esac
+    test -n "$secret_file" || { echo "FAIL: invalid secret test setup"; exit 1; }
+    test "$scenario" != missing || test ! -e "$secret_file" || { echo "FAIL: missing-secret case exists"; exit 1; }
+    mkdir -p "/work/$scenario-admin-config"
+    failed_status=0
+    timeout 12s env DNS_SERVER_ADMIN_PASSWORD_FILE="$secret_file" \
+        dotnet DnsServerApp.dll --stop-if-bind-fails --portable-app "/work/$scenario-admin-config" \
+        > "/work/$scenario-admin.log" 2>&1 || failed_status=$?
+    if [ "$failed_status" -eq 0 ] || [ "$failed_status" -eq 124 ] ||
+       [ "$failed_status" -eq 125 ] || [ "$failed_status" -eq 126 ] ||
+       [ "$failed_status" -eq 127 ] || [ "$failed_status" -eq 137 ] ||
+       ! grep -Fq "Could not initialize administrator credentials from DNS_SERVER_ADMIN_PASSWORD_FILE." "/work/$scenario-admin.log"; then
+        echo "FAIL: $scenario administrator password file did not fail closed (exit $failed_status)" >&2
+        exit 1
+    fi
+    echo "PASS: $scenario admin password file fails closed"
+done
 
 umask 077
 od -An -N24 -tx1 /dev/urandom | tr -d '[:space:]' > /work/admin-password
@@ -74,8 +88,27 @@ curl --fail --silent --max-time 3 http://127.0.0.1:5380/css/goreecloud.css |
     grep -Fq "gc-skip-link" || { echo "FAIL: GoreeCloud styles unavailable"; exit 1; }
 echo "PASS: branded console CSS served"
 
+# A second instance sharing the same isolated loopback listeners must fail quickly.
+# Use independent disposable configuration; do not interact with any host ports.
+mkdir -p /work/bind-collision-config
+collision_status=0
+timeout 12s env DNS_SERVER_ADMIN_PASSWORD_FILE=/work/admin-password \
+    dotnet DnsServerApp.dll --stop-if-bind-fails --portable-app /work/bind-collision-config \
+    > /work/bind-collision.log 2>&1 || collision_status=$?
+if [ "$collision_status" -eq 0 ] || [ "$collision_status" -eq 124 ] ||
+   [ "$collision_status" -eq 125 ] || [ "$collision_status" -eq 126 ] ||
+   [ "$collision_status" -eq 127 ] || [ "$collision_status" -eq 137 ] ||
+   ! grep -Eiq 'address already in use|failed to bind|AddressInUse' /work/bind-collision.log; then
+    echo "FAIL: duplicate server did not report an unsuccessful listener bind (exit $collision_status)" >&2
+    exit 1
+fi
+curl --fail --silent --max-time 3 -o /dev/null http://127.0.0.1:5380/ ||
+    { echo "FAIL: primary DNS console died after bind collision" >&2; exit 1; }
+echo "PASS: duplicate listener startup fails without stopping primary service"
+
 perl /work/smoke_dns_protocol.pl udp
 perl /work/smoke_dns_protocol.pl tcp
+perl /work/smoke_edns_version.pl
 
 status_code="$(curl --silent --show-error --max-time 4 -o /work/unauth-settings.json -w '%{http_code}' http://127.0.0.1:5380/api/settings/get)"
 case "$status_code" in
