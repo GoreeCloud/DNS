@@ -4,6 +4,14 @@
 set -eu
 
 [ "$(id -u)" = "1654" ] || { echo "FAIL: image smoke must run as UID 1654" >&2; exit 1; }
+[ -f /.dockerenv ] || [ -f /run/.containerenv ] ||
+    { echo "FAIL: refusing to run outside a container" >&2; exit 1; }
+[ -d /sys/class/net/lo ] ||
+    { echo "FAIL: isolated loopback interface missing" >&2; exit 1; }
+for interface in /sys/class/net/*; do
+    [ "${interface##*/}" = "lo" ] ||
+        { echo "FAIL: network interface other than loopback is present" >&2; exit 1; }
+done
 for binary in dotnet curl dig od tr grep; do
     command -v "$binary" >/dev/null 2>&1 || { echo "FAIL: missing $binary" >&2; exit 1; }
 done
