@@ -87,6 +87,12 @@ The optional `tests/smoke_release_persistence.sh <prebuilt-local-image-tag>` tes
 
 On November 7, 2026, the exact script passed two starts against an unpublished Linux/amd64 review image and all **46 Python regression tests** passed locally. This is evidence for one non-root start/stop/restart with preserved configuration, **not** live data migration, user-zone persistence, durable backup/restore, recovery after corruption, multiarchitecture support, resource/load endurance, final-image hosted CI, or production readiness. The Dockerfile still defaults to a root identity inside the container; release-image issue [#8](https://github.com/GoreeCloud/DNS/issues/8) remains open.
 
+## Disposable non-root raw-volume archive round-trip
+
+The opt-in `tests/smoke_release_backup_restore.sh <prebuilt-local-image-tag>` test creates its own disposable volume and generates a temporary first-run administrator secret. After a non-root container starts and responds over isolated loopback, the test archives that temporary volume, verifies a SHA-256 checksum and rejects modified archive bytes, restores it to a **different** temporary volume, and checks that a second non-root container starts and serves the branded console and denied-recursion response. The test uses rootless Podman, `--network=none`, no mapped ports and a local prebuilt image only; it cleans up the temporary volumes and archived secrets on exit.
+
+On November 7, 2026, this exact test passed on the unpublished Linux/amd64 review image. This exercises one simple *raw-volume* archive/restore workflow, **not** the DNS server's native backup or migration APIs, a disaster-recovery drill, user-zone persistence, cryptographic encryption at rest, upgrade compatibility, long-term storage, production key recovery or a Stable release. Issue [#8](https://github.com/GoreeCloud/DNS/issues/8) remains open.
+
 ## Docker Compose example — upstream image and safe management binding
 
 The repository includes an **upstream Technitium sample** `docker-compose.yml` that pulls `docker.io/technitium/dns-server:latest`. Running that sample does **not** run GoreeCloud's source changes or regression tests. The image tag is mutable, and release-image provenance and dependency pinning remain open under [issue #8](https://github.com/GoreeCloud/DNS/issues/8). Do not represent this sample as a validated GoreeCloud deployment.
