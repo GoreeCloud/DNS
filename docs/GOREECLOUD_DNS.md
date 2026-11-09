@@ -41,6 +41,16 @@ Never substitute host networking, rootful Podman or a production DNS configurati
 
 The isolated authoritative-zone smoke also creates the reserved test zone `smoke.invalid` and an A record `host.smoke.invalid → 192.0.2.42` through the authenticated local management API; the wire-level UDP and TCP tests verify AA, NOERROR, the expected answer address, and the configured TTL bound. These records exist only in disposable test configuration, never the host resolver or any networked deployment. This is authoritative local-zone correctness evidence, **not DNSSEC, recursive forwarding, negative caching, zone transfer, or external connectivity acceptance**.
 
+## Offline DNSSEC publication probe — isolated runtime acceptance
+
+The optional isolated smoke harness now prepares a disposable primary zone `smoke.invalid`, generates **ephemeral ECDSA P-256** zone-signing keys using the local DNSSEC sign API, and sends EDNS(0) DNS queries with the DO bit set over UDP and TCP. The probe asserts that authoritative DNSKEY (type 48) and A (type 1) answers include covering RRSIG (type 46) records. The generated keys and zone stay inside temporary, network-disabled container state and are not released or published as trust anchors.
+
+**Verified November 8, 2026 (isolated development evidence):** A fresh, temporary application copy was extracted from the previously cached `localhost/goreecloud-dns-release-review:20261103` development container image. The unchanged opt-in rootless Podman harness ran in a separate disposable .NET SDK container with `--network=none`, `--cap-drop=ALL` (only `NET_BIND_SERVICE` added), no host port publishing, and isolated configuration/secrets. A one-time ECDSA P-256 signing API call succeeded; DO-bit DNSKEY and A queries returned covering RRSIGs over **both UDP and TCP**. The same run passed first-run password refusal, authentication, login lockout, negative answers, DoH/DoT, bind collision, EDNS and localhost console checks. Source contract tests passed after the branch was reconciled with current main. This runtime probe used a cached development application binary rather than an exact-head newly built .NET binary.
+
+**Remaining evidence boundary:** Matching DNSKEY/RRSIG **publication** does not prove independently verified cryptographic signature validity, NSEC proofs, DNSSEC validator behavior, trust-chain establishment, secure key rollover, external interoperability, or production release. Do not claim DNSSEC-ready service or deploy this experiment until those separate gates, backup recovery, and security acceptance are fulfilled.
+
+## Authoritative negative-answer smoke
+
 The same opt-in isolated harness now verifies **negative authoritative responses** from the disposable zone on both UDP and TCP: `absent.smoke.invalid` A queries return NXDOMAIN (RCODE 3) with an SOA in the authority section, while `host.smoke.invalid` AAAA queries return NOERROR with no answers (NODATA) and an authoritative SOA. Both tests require the authoritative-answer flag and a matching transaction ID. This does not verify DNSSEC denial-of-existence proofs, recursive caching behavior, zone transfers, or external network interoperability.
 
 ## EDNS version rejection smoke

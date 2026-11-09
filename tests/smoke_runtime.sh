@@ -30,6 +30,7 @@ cp -- "$(dirname "$0")/smoke_authoritative_negative.pl" "$work/smoke_authoritati
 cp -- "$(dirname "$0")/smoke_doh_tls.pl" "$work/smoke_doh_tls.pl"
 cp -- "$(dirname "$0")/smoke_dot_tls.pl" "$work/smoke_dot_tls.pl"
 cp -- "$(dirname "$0")/smoke_login_lockout.pl" "$work/smoke_login_lockout.pl"
+cp -- "$(dirname "$0")/smoke_dnssec.pl" "$work/smoke_dnssec.pl"
 
 cat > "$work/run-smoke.sh" <<'SMOKE'
 #!/usr/bin/env bash

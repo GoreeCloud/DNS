@@ -31,6 +31,7 @@ jobs:
           perl -c tests/smoke_doh_tls.pl
           perl -c tests/smoke_dot_tls.pl
           perl -c tests/smoke_login_lockout.pl
+          perl -c tests/smoke_dnssec.pl
       - name: Check committed patch whitespace
         run: git diff --check HEAD^ HEAD
 

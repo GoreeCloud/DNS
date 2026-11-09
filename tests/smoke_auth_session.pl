@@ -65,6 +65,9 @@ system('perl', '/work/smoke_doh_tls.pl', $header_path) == 0
 system('perl', '/work/smoke_dot_tls.pl') == 0
     or die "FAIL: isolated DoT/TLS acceptance failed\n";
 
+system('perl', '/work/smoke_dnssec.pl', $header_path) == 0
+    or die "FAIL: isolated DNSSEC publication verification failed\n";
+
 my $logout = api('logout', '--header', '@' . $header_path, "$root/api/user/logout");
 ($logout->{status} // '') eq 'ok'
     or die "FAIL: logout was unsuccessful\n";
