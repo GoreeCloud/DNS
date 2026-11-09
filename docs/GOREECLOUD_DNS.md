@@ -7,6 +7,10 @@ GoreeCloud DNS is a development distribution of [Technitium DNS Server](https://
 - GoreeCloud/DNS already existed as an independent public repository; this is not a GitHub-native fork relationship.
 - Original headers, attribution, and GPL-3.0-or-later terms are preserved.
 
+## November 8, 2026 — additional isolated release-image transport checks
+
+The optional rootless candidate-image smoke now exercises **both UDP and DNS-over-TCP** for a disabled-recursion lookup, requires explicit `REFUSED` with no answer records over either transport, and retains the local branded console and anonymous-management-denial checks. A rootless, `--network=none`, ephemeral-volume test on the previously cached development review image confirms these conditions only for that image. This does **not** certify external recursion, DNSSEC, DoH/DoT/DoQ, public network exposure, production availability, or a production DNS replacement. The separate disposable raw-volume backup/restore smoke also passed with hash verification and a restored non-root container, but it does not establish an off-host backup or VPS restoration capability.
+
 ## Added in the GoreeCloud development branch
 
 - Console, login, About and encrypted DNS setup page identify the GoreeCloud distribution; upstream credit and repository links remain visible.
