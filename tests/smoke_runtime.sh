@@ -147,3 +147,14 @@ timeout 55s podman run --rm \
     -e DNS_SERVER_WEB_SERVICE_HTTP_PORT=5380 \
     -e DNS_SERVER_RECURSION=Deny \
     -v "$work:/work:Z" -w /work "$image" bash /work/run-smoke.sh
+
+# Optional runtime smoke is a fail-closed independent signature-math check.
+# Only test-zone public DNS response wires are read after sandbox exit;
+# temporary private signing keys are never exported or opened here.
+python3 -c 'import dns.dnssec, cryptography' || {
+    echo "FAIL: offline dnspython/cryptography verifier dependencies unavailable" >&2
+    exit 2
+}
+python3 "$(dirname "$0")/verify_dnssec_crypto.py" \
+    "$work/dnssec-wire-udp-48.bin" "$work/dnssec-wire-udp-1.bin" \
+    "$work/dnssec-wire-tcp-48.bin" "$work/dnssec-wire-tcp-1.bin"
