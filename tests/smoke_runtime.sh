@@ -31,6 +31,7 @@ cp -- "$(dirname "$0")/smoke_doh_tls.pl" "$work/smoke_doh_tls.pl"
 cp -- "$(dirname "$0")/smoke_dot_tls.pl" "$work/smoke_dot_tls.pl"
 cp -- "$(dirname "$0")/smoke_login_lockout.pl" "$work/smoke_login_lockout.pl"
 cp -- "$(dirname "$0")/smoke_dnssec.pl" "$work/smoke_dnssec.pl"
+cp -- "$(dirname "$0")/smoke_dnssec_nodata.pl" "$work/smoke_dnssec_nodata.pl"
 
 cat > "$work/run-smoke.sh" <<'SMOKE'
 #!/usr/bin/env bash
@@ -158,3 +159,8 @@ python3 -c 'import dns.dnssec, cryptography' || {
 python3 "$(dirname "$0")/verify_dnssec_crypto.py" \
     "$work/dnssec-wire-udp-48.bin" "$work/dnssec-wire-udp-1.bin" \
     "$work/dnssec-wire-tcp-48.bin" "$work/dnssec-wire-tcp-1.bin"
+
+# Authenticated-in-test-zone NSEC *NODATA* only; no external DS trust.
+python3 "$(dirname "$0")/verify_dnssec_nodata.py" \
+    "$work/dnssec-wire-udp-48.bin" "$work/dnssec-wire-tcp-48.bin" \
+    "$work/dnssec-nodata-udp.bin" "$work/dnssec-nodata-tcp.bin"
