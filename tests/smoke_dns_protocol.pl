@@ -8,9 +8,14 @@ my $protocol = shift @ARGV // '';
 die "Usage: perl smoke_dns_protocol.pl udp|tcp\n" unless $protocol eq 'udp' || $protocol eq 'tcp';
 die "Unexpected arguments\n" if @ARGV;
 
+# Permit CI's ephemeral loopback mock port; the isolated runtime keeps port 53.
+my $port = $ENV{GOREECLOUD_DNS_SMOKE_PORT} // 53;
+$port =~ /\A[1-9][0-9]{0,4}\z/ && $port <= 65535
+    or die "FAIL: invalid DNS smoke port\n";
+
 my $socket = IO::Socket::INET->new(
     PeerAddr => '127.0.0.1',
-    PeerPort => 53,
+    PeerPort => $port,
     Proto    => $protocol,
     Timeout  => 4
 ) or die "FAIL: $protocol DNS socket unavailable: $!\n";
@@ -53,9 +58,23 @@ if ($protocol eq 'udp') {
 alarm 0;
 
 length($response) >= 12 or die "FAIL: malformed $protocol DNS response\n";
-my ($id, $flags, $questions, $answers) = unpack('n4', $response);
+my ($id, $flags, $questions, $answers, $authority, $additional) = unpack('n6', $response);
 $id == $query_id or die "FAIL: $protocol DNS transaction ID mismatch\n";
 ($flags & 0x8000) or die "FAIL: $protocol DNS response bit missing\n";
+($flags & 0x7800) == 0 or die "FAIL: $protocol DNS response opcode changed\n";
+($flags & 0x0200) == 0 or die "FAIL: unexpected truncated $protocol DNS refusal\n";
 $questions == 1 or die "FAIL: $protocol DNS question count mismatch\n";
+# This query uses the first, uncompressed question name in the packet.
+# A refusal for a different name/type/class must not satisfy this smoke test.
+my $expected_question = substr($question, 12);
+length($response) >= 12 + length($expected_question)
+    or die "FAIL: $protocol DNS response question is truncated\n";
+substr($response, 12, length($expected_question)) eq $expected_question
+    or die "FAIL: $protocol DNS response question changed\n";
+$answers == 0 or die "FAIL: $protocol DNS refusal unexpectedly contains answers\n";
+$authority == 0 or die "FAIL: $protocol DNS refusal unexpectedly contains authority records\n";
+$additional == 0 or die "FAIL: $protocol DNS refusal unexpectedly contains additional records\n";
+length($response) == 12 + length($expected_question)
+    or die "FAIL: $protocol DNS refusal has unexpected trailing bytes\n";
 ($flags & 15) == 5 or die "FAIL: expected $protocol DNS REFUSED (recursion is denied)\n";
 print "PASS: $protocol DNS returned REFUSED under explicit recursion-denied configuration\n";
