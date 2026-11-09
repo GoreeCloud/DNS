@@ -107,6 +107,12 @@ sub signed_query {
     }
     $records >= 1 && $signatures >= 1
         or die "FAIL: missing DNSSEC type $qtype record or matching RRSIG on $transport\n";
+    # Only public DNS response packets; never export an ephemeral signing key.
+    my $proof = "/work/dnssec-wire-$transport-$qtype.bin";
+    open my $out, '>:raw', $proof or die "FAIL: cannot save DNSSEC proof packet\n";
+    print {$out} $wire or die "FAIL: cannot write DNSSEC proof packet\n";
+    close $out or die "FAIL: cannot close DNSSEC proof packet\n";
+    chmod 0600, $proof or die "FAIL: cannot protect DNSSEC proof packet\n";
     print "PASS: $transport DNSSEC type $qtype and covering RRSIG published\n";
 }
 
