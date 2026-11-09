@@ -50,10 +50,20 @@ grep -Fq '<title>GoreeCloud DNS</title>' /work/console.html ||
     { echo "FAIL: expected branded console missing" >&2; exit 1; }
 echo "PASS: non-root candidate image serves branded loopback console"
 
-dig @127.0.0.1 -p 53 localhost A +time=1 +tries=1 +noall +comments > /work/refusal.txt
-grep -Fq 'status: REFUSED' /work/refusal.txt ||
-    { echo "FAIL: disabled recursion was not refused" >&2; exit 1; }
-echo "PASS: non-root candidate image rejects recursion over UDP"
+# Both UDP and DNS-over-TCP must independently refuse a recursive lookup.
+# Keep the protocol-specific readback separate: success on one is not parity.
+for transport in udp tcp; do
+    if [ "$transport" = tcp ]; then
+        dig +tcp @127.0.0.1 -p 53 localhost A +time=1 +tries=1 +noall +comments > /work/refusal-tcp.txt
+    else
+        dig @127.0.0.1 -p 53 localhost A +time=1 +tries=1 +noall +comments > /work/refusal-udp.txt
+    fi
+    grep -Fq 'status: REFUSED' "/work/refusal-$transport.txt" ||
+        { echo "FAIL: disabled recursion was not refused over $transport" >&2; exit 1; }
+    grep -Eq 'ANSWER: 0,' "/work/refusal-$transport.txt" ||
+        { echo "FAIL: unexpected recursive answer over $transport" >&2; exit 1; }
+    echo "PASS: non-root candidate image rejects recursion over $transport"
+done
 
 status="$(curl --silent --show-error --noproxy '*' --max-time 4 \
     --output /work/unauth.json --write-out '%{http_code}' \

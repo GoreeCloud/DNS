@@ -44,6 +44,9 @@ class ReleaseImageSmokeContracts(unittest.TestCase):
     def test_basic_dns_and_api_boundaries(self):
         self.assertIn("GoreeCloud DNS</title>", self.source)
         self.assertIn("status: REFUSED", self.source)
+        self.assertIn("for transport in udp tcp", self.source)
+        self.assertIn("dig +tcp @127.0.0.1 -p 53", self.source)
+        self.assertIn('ANSWER: 0,', self.source)
         self.assertIn("http://127.0.0.1:5380/api/settings/get", self.source)
         self.assertIn("invalid-token", self.source)
 
