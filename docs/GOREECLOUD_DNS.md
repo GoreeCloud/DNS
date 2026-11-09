@@ -142,3 +142,17 @@ An additional opt-in, `--network=none` test now queries `host.smoke.invalid. AAA
 The isolated cached development-image runtime passed this narrow mathematical check over UDP and TCP. Separate synthetic regressions reject changed type bitmaps, a foreign signer, an expired signature, a wrong owner, NXDOMAIN substitution, missing packets, and unprotected fixture files. The hosted source/.NET workflow syntax-checks the helper but does **not** independently claim to execute the rootless DNS runtime or install optional cryptography packages.
 
 **Boundary:** This validates only a particular signed **NODATA** assertion for an existing test-zone name with an **in-band key**. It is **not** a full RFC 4035 NXDOMAIN/closest-encloser/wildcard-denial proof, NSEC3 assessment, DNSKEY trust-anchor or DS delegation verification, key rollover, external resolver interoperability, or release acceptance. Real production DNS, AdGuard, Unbound, public records, and NetBird traffic are untouched. The result always reports `production_dnssec_ready: false`.
+
+## November 9, 2026 — optional offline candidate-image package parity
+
+`scripts/compare_offline_package_manifests.py` adds a **nonexecuting, read-only** comparison of two already-exported Debian `dpkg-query` package-version inventories from isolated **candidate** image builds. Use only owner-controlled, owner-only regular files (0600) no larger than 1 MiB, with 1–4096 valid tab-separated `Package`, `Version`, and `Architecture` rows. The script rejects duplicate package identities, malformed metadata, symlink and hardlink inputs, missing files, and access/size mismatches. It never starts Docker/Podman, installs packages, runs untrusted executables, contacts the network, parses a running host's package database, or logs package names or file paths.
+
+Prepare the two inventories only from separately reviewed **disposable, network-disabled candidate containers**, using a trusted `dpkg-query` and private workspace. The operator owns export, provenance, destination and cleanup. Compare only these files, without copying private image data into a public repository:
+
+```sh
+python3 scripts/compare_offline_package_manifests.py /owner-private/first.tsv /owner-private/second.tsv
+```
+
+The fixed JSON schema `goreecloud.dns-package-parity.v1` reports `identical` (exit 0), `drift` (exit 1), or `unverified` (exit 2), along with package counts and **always** `release_authorized:false`. Exact agreement only shows that the **reported** package inventories agree. It does **not** authenticate package origin, establish source provenance, prove reproducible builds, audit vulnerabilities/licenses, pin moving APT dependencies, detect runtime tampering, validate a container digest, or qualify production. The existing runtime image still uses unpinned APT inputs, so issue #8 remains open.
+
+Synthetic Python tests cover identical sets with reordered rows, package-version drift, malformed/oversized inventories, duplicate packages, non-ASCII fields, unsafe file types/permissions, and redacted failures. No live image or VPS was examined by these tests.
