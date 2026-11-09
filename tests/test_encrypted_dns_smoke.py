@@ -41,6 +41,8 @@ class EncryptedDnsSmokeContracts(unittest.TestCase):
         self.assertIn("my $expected_question = substr($query, 12);", self.doh)
         self.assertIn("my $actual_question = substr($wire, 12, $offset - 12);", self.doh)
         self.assertIn("$actual_question eq $expected_question", self.doh)
+        self.assertIn("$owner_matches_query && $type == 1", self.doh)
+        self.assertIn("$owner_wire eq pack('C2', 0xc0, 12)", self.doh)
         self.assertIn("($flags & 0x7800) == 0", self.doh)
         self.assertIn("($flags & 0x0200) == 0", self.doh)
 
