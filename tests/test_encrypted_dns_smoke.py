@@ -37,6 +37,15 @@ class EncryptedDnsSmokeContracts(unittest.TestCase):
         self.assertNotIn("'--insecure'", self.doh)
         self.assertNotIn("'-k'", self.doh)
 
+    def test_doh_rejects_wrong_echoed_question_and_truncated_response(self):
+        self.assertIn("my $expected_question = substr($query, 12);", self.doh)
+        self.assertIn("my $actual_question = substr($wire, 12, $offset - 12);", self.doh)
+        self.assertIn("$actual_question eq $expected_question", self.doh)
+        self.assertIn("$owner_matches_query && $type == 1", self.doh)
+        self.assertIn("$owner_wire eq pack('C2', 0xc0, 12)", self.doh)
+        self.assertIn("($flags & 0x7800) == 0", self.doh)
+        self.assertIn("($flags & 0x0200) == 0", self.doh)
+
     def test_doh_rejects_bad_requests_without_disabling_valid_queries(self):
         self.assertIn("expect_http_error('doh-missing-dns', 400)", self.doh)
         self.assertIn("expect_http_error('doh-invalid-dns-base64', 400", self.doh)

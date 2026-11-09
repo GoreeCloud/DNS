@@ -88,6 +88,7 @@ sub check_response {
     length($wire) >= 12 or die "FAIL: $label short DNS payload\n";
     my ($id, $flags, $qd, $an) = unpack('n4', $wire);
     $id == 0 && ($flags & 0x8000) && ($flags & 0x0400) &&
+        (($flags & 0x7800) == 0) && (($flags & 0x0200) == 0) &&
         (($flags & 0x000f) == 0) && $qd == 1 && $an >= 1
         or die "FAIL: $label unexpected authoritative DNS result\n";
     my $offset = 12;
@@ -96,14 +97,26 @@ sub check_response {
         $offset + 4 <= length($wire) or die "FAIL: $label short question\n";
         $offset += 4;
     }
+    # The exact synthetic local question must survive HTTPS/DNS processing;
+    # an unrelated but plausible A answer is never proof of this request.
+    my $expected_question = substr($query, 12);
+    my $actual_question = substr($wire, 12, $offset - 12);
+    $actual_question eq $expected_question
+        or die "FAIL: $label DoH question does not match requested name/type/class\n";
     my $found = 0;
     for (1..$an) {
+        my $owner_start = $offset;
         $offset = after_name($wire, $offset);
+        my $owner_wire = substr($wire, $owner_start, $offset - $owner_start);
+        # Accept the fixed test name either literally or as the standard
+        # pointer to the echoed question at DNS wire offset 12.
+        my $owner_matches_query = ($owner_wire eq $qname ||
+                                   $owner_wire eq pack('C2', 0xc0, 12));
         $offset + 10 <= length($wire) or die "FAIL: $label short record header\n";
         my ($type, $class, $ttl, $len) = unpack('nnNn', substr($wire, $offset, 10));
         $offset += 10;
         $offset + $len <= length($wire) or die "FAIL: $label truncated record data\n";
-        if ($type == 1 && $class == 1 && $ttl > 0 && $ttl <= 120 &&
+        if ($owner_matches_query && $type == 1 && $class == 1 && $ttl > 0 && $ttl <= 120 &&
             $len == 4 && substr($wire, $offset, 4) eq pack('C4', 192, 0, 2, 42)) {
             $found = 1;
         }
