@@ -88,6 +88,7 @@ sub check_response {
     length($wire) >= 12 or die "FAIL: $label short DNS payload\n";
     my ($id, $flags, $qd, $an) = unpack('n4', $wire);
     $id == 0 && ($flags & 0x8000) && ($flags & 0x0400) &&
+        (($flags & 0x7800) == 0) && (($flags & 0x0200) == 0) &&
         (($flags & 0x000f) == 0) && $qd == 1 && $an >= 1
         or die "FAIL: $label unexpected authoritative DNS result\n";
     my $offset = 12;
@@ -96,6 +97,12 @@ sub check_response {
         $offset + 4 <= length($wire) or die "FAIL: $label short question\n";
         $offset += 4;
     }
+    # The exact synthetic local question must survive HTTPS/DNS processing;
+    # an unrelated but plausible A answer is never proof of this request.
+    my $expected_question = substr($query, 12);
+    my $actual_question = substr($wire, 12, $offset - 12);
+    $actual_question eq $expected_question
+        or die "FAIL: $label DoH question does not match requested name/type/class\n";
     my $found = 0;
     for (1..$an) {
         $offset = after_name($wire, $offset);
