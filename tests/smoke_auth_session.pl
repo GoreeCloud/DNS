@@ -67,6 +67,8 @@ system('perl', '/work/smoke_dot_tls.pl') == 0
 
 system('perl', '/work/smoke_dnssec.pl', $header_path) == 0
     or die "FAIL: isolated DNSSEC publication verification failed\n";
+system('perl', '/work/smoke_dnssec_nodata.pl') == 0
+    or die "FAIL: isolated signed NODATA response unavailable\n";
 
 my $logout = api('logout', '--header', '@' . $header_path, "$root/api/user/logout");
 ($logout->{status} // '') eq 'ok'
