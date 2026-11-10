@@ -11,8 +11,22 @@ import re
 import subprocess
 import sys
 
-PORTS = (("dns_udp_53", "udp", 53), ("dns_tcp_53", "tcp", 53),
-         ("management_tcp_5380", "tcp", 5380))
+# Local-listener hints for the transport surfaces in the development Dockerfile.
+# A relevant occupied port can be shared intentionally with a reverse proxy;
+# this is NOT an assertion that a DNS service owns it, nor a cutover decision.
+PORTS = (
+    ("dns_udp_53", "udp", 53),
+    ("dns_tcp_53", "tcp", 53),
+    ("dot_tcp_853", "tcp", 853),
+    ("doq_udp_853", "udp", 853),
+    ("doh_tcp_443", "tcp", 443),
+    ("doh_http3_udp_443", "udp", 443),
+    ("dns_http_tcp_80", "tcp", 80),
+    ("dns_http_tcp_8053", "tcp", 8053),
+    ("management_tcp_5380", "tcp", 5380),
+    ("management_tls_tcp_53443", "tcp", 53443),
+    ("dhcp_udp_67", "udp", 67),
+)
 PORT_SUFFIX = re.compile(r":([0-9]{1,5})$")
 
 
