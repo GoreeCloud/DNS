@@ -25,3 +25,7 @@ The candidate image **must** have a verified MsQuic runtime, local 127.0.0.1 QUI
 The real DoQ service handshake, trust, query semantics, concurrency, migration, failure injection, memory behavior, package signature chain, image provenance, DoH/DoT parity, authenticated operator setup and rollback are **unverified** until separately executed and recorded. Existing DoH/DoT smoke tests remain unchanged. Do not run this optional live client against production DNS or mark the DoQ release gate complete from CI source tests alone.
 
 References: [RFC 9250](https://www.rfc-editor.org/rfc/rfc9250), [Microsoft .NET QUIC guidance](https://learn.microsoft.com/dotnet/fundamentals/networking/quic/quic-overview).
+
+## November 10, 2026 — negative framed-response matrix
+
+The `--self-test` now exercises the same strict 2-byte big-endian length decoder used by the optional `--loopback` QUIC read path. It rejects zero, one-byte, zero-length and over-4096-byte prefixes; mismatched declared body lengths, truncated DNS bodies, changed answer data and trailing bytes; while retaining the existing authoritative-response and opcode tests. The self-test requires neither MsQuic nor a live service and is automatically run inside the pinned SDK CI build. Only a separate isolated `--network=none` live handshake with verified certificates and real QUIC traffic can establish DoQ transport acceptance; CI parser success is not an operational readiness signal.
