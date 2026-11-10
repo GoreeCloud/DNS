@@ -42,7 +42,7 @@ class HostListenerPreflightTests(unittest.TestCase):
             ("tcp", 53443, "management_tls_tcp_53443"),
             ("udp", 67, "dhcp_udp_67"),
         )
-        synthetic = "\\n".join(
+        synthetic = "\n".join(
             f"{proto} LISTEN 0 4096 [::]:{port} [::]:*"
             for proto, port, _ in paths
         )
@@ -54,7 +54,7 @@ class HostListenerPreflightTests(unittest.TestCase):
         self.assertEqual(result["management_tcp_5380"], "not_observed")
 
     def test_suffix_matching_does_not_confuse_similar_port_numbers(self):
-        synthetic = "\\n".join(
+        synthetic = "\n".join(
             f"tcp LISTEN 0 4096 127.0.0.1:{port} 0.0.0.0:*"
             for port in (153, 1443, 1853, 15380, 18053, 54343)
         )
