@@ -34,14 +34,33 @@ class UnsafeManifest(ValueError):
 
 def _read_manifest_with_inode(path: Path) -> tuple[dict[tuple[str, str], str], tuple[int, int]]:
     """Read a bounded owner-owned file and return the exact opened inode."""
-    if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "geteuid"):
+    if (not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY")
+            or not hasattr(os, "geteuid")):
         raise UnsafeManifest("secure file operations unavailable")
+    parent_fd = None
     fd = None
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
-                     | getattr(os, "O_CLOEXEC", 0))
+        # Pin the immediate owner-private directory before opening the
+        # inventory. A public or symlinked parent is not independent
+        # candidate-build provenance, even if the final file is mode 0600.
+        parent_fd = os.open(
+            path.parent,
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_DIRECTORY
+            | getattr(os, "O_CLOEXEC", 0)
+        )
+        parent = os.fstat(parent_fd)
+        if (not stat.S_ISDIR(parent.st_mode)
+                or parent.st_uid != os.geteuid()
+                or parent.st_mode & 0o077):
+            raise UnsafeManifest("unsafe inventory parent directory")
+        fd = os.open(
+            path.name,
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+            | getattr(os, "O_CLOEXEC", 0),
+            dir_fd=parent_fd,
+        )
         item = os.fstat(fd)
-        named = os.stat(path, follow_symlinks=False)
+        named = os.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
         if not (stat.S_ISREG(item.st_mode) and item.st_uid == os.geteuid()
                 and item.st_nlink == 1 and not (item.st_mode & 0o077)
                 and (item.st_dev, item.st_ino) == (named.st_dev, named.st_ino)
@@ -67,6 +86,8 @@ def _read_manifest_with_inode(path: Path) -> tuple[dict[tuple[str, str], str], t
     finally:
         if fd is not None:
             os.close(fd)
+        if parent_fd is not None:
+            os.close(parent_fd)
 
     try:
         value = bytes(payload).decode("ascii")
