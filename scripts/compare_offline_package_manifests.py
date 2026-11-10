@@ -17,6 +17,12 @@ import sys
 
 MAX_BYTES = 1 << 20
 MAX_PACKAGES = 4096
+# First-party Dockerfile declares these packages. Presence is an independent
+# opt-in gate in addition to identical full inventories. This is not SBOM or
+# provenance validation, and no package names appear in CLI JSON.
+REQUIRED_DNS_RUNTIME_PACKAGES = frozenset({
+    "libmsquic", "dnsutils", "iputils-ping", "curl",
+})
 NAME = re.compile(r"[a-z0-9][a-z0-9+.-]{0,127}(?::[a-z0-9-]+)?\Z")
 VERSION = re.compile(r"[0-9][A-Za-z0-9.+~:_-]{0,127}\Z")
 ARCH = re.compile(r"[a-z0-9][a-z0-9-]{0,39}\Z")
@@ -95,13 +101,20 @@ def read_owner_manifest(path: Path) -> dict[tuple[str, str], str]:
     return records
 
 
-def compare(first: Path, second: Path) -> dict[str, object]:
+def compare(
+    first: Path, second: Path, *, require_dns_runtime: bool = False
+) -> dict[str, object]:
     a, identity_a = _read_manifest_with_inode(first)
     b, identity_b = _read_manifest_with_inode(second)
     # Comparing an identical inode under two path spellings is not evidence
     # of two independently produced candidate-image inventories.
     if identity_a == identity_b:
         raise UnsafeManifest("candidate inventories share one source file")
+    if require_dns_runtime:
+        for records in (a, b):
+            installed_names = {name for name, _arch in records}
+            if not REQUIRED_DNS_RUNTIME_PACKAGES.issubset(installed_names):
+                raise UnsafeManifest("required development runtime packages unverified")
     return {
         "status": "identical" if a == b else "drift",
         "first_count": len(a),
@@ -115,15 +128,24 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("first", type=Path)
     parser.add_argument("second", type=Path)
+    parser.add_argument(
+        "--require-dns-runtime", action="store_true",
+        help="Require all Dockerfile-declared DNS troubleshooting and QUIC packages",
+    )
     args = parser.parse_args(argv)
     try:
-        facts = compare(args.first, args.second)
+        facts = compare(
+            args.first, args.second,
+            require_dns_runtime=args.require_dns_runtime
+        )
     except (UnsafeManifest, ValueError):
         facts = {"status": "unverified", "first_count": None, "second_count": None}
     output = {
         "schema_version": "goreecloud.dns-package-parity.v1",
         "comparison": "offline_read_only",
         "release_authorized": False,
+        **({"required_dns_runtime_packages_verified":
+            facts["status"] != "unverified"} if args.require_dns_runtime else {}),
         **facts,
     }
     print(json.dumps(output, separators=(",", ":"), sort_keys=True))

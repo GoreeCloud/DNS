@@ -106,6 +106,63 @@ class PackageInventoryTests(unittest.TestCase):
             with self.assertRaises(UnsafeManifest):
                 _read_manifest_with_inode(self.first)
 
+    def test_required_runtime_packages_missing_fail_closed_without_names(self):
+        # A pair can match exactly while *both* candidates lack QUIC and
+        # troubleshooting packages. Such parity is not release readiness.
+        exit_code, report, raw = self.run_cli(
+            str(self.first), str(self.second), "--require-dns-runtime"
+        )
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(report["status"], "unverified")
+        self.assertFalse(report["required_dns_runtime_packages_verified"])
+        self.assertFalse(report["release_authorized"])
+        self.assertNotIn("libmsquic", raw)
+        self.assertNotIn(str(self.dir), raw)
+
+    def test_required_runtime_packages_present_allow_parity_but_not_release(self):
+        additions = (
+            "dnsutils\t1:9.18.30-0ubuntu0.24.04.2\tamd64\n"
+            "iputils-ping\t3:20240117-1build1\tamd64\n"
+            "curl\t8.5.0-2ubuntu10.6\tamd64\n"
+        )
+        self.first.write_text(BASE + additions)
+        self.second.write_text(BASE + additions)
+        code, report, raw = self.run_cli(
+            str(self.first), str(self.second), "--require-dns-runtime"
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(report["status"], "identical")
+        self.assertTrue(report["required_dns_runtime_packages_verified"])
+        self.assertFalse(report["release_authorized"])
+        self.assertNotIn("libmsquic", raw)
+        self.assertNotIn(str(self.dir), raw)
+        self.second.write_text((BASE + additions).replace(
+            "8.5.0-2ubuntu10.6", "8.5.0-2ubuntu10.7"
+        ))
+        code, report, _ = self.run_cli(
+            str(self.first), str(self.second), "--require-dns-runtime"
+        )
+        self.assertEqual(code, 1)
+        self.assertEqual(report["status"], "drift")
+        self.assertTrue(report["required_dns_runtime_packages_verified"])
+
+    def test_missing_one_required_package_on_second_candidate_is_unverified(self):
+        additions = (
+            "dnsutils\t1:9.18.30-0ubuntu0.24.04.2\tamd64\n"
+            "iputils-ping\t3:20240117-1build1\tamd64\n"
+            "curl\t8.5.0-2ubuntu10.6\tamd64\n"
+        )
+        self.first.write_text(BASE + additions)
+        self.second.write_text(BASE + additions.replace(
+            "curl\t8.5.0-2ubuntu10.6\tamd64\n", ""
+        ))
+        status, report, _ = self.run_cli(
+            str(self.first), str(self.second), "--require-dns-runtime"
+        )
+        self.assertEqual(status, 2)
+        self.assertEqual(report["status"], "unverified")
+        self.assertFalse(report["required_dns_runtime_packages_verified"])
+
     def test_drift_detected_without_package_names_or_paths(self):
         self.second.write_text(DRIFT)
         status, report, raw = self.run_cli(str(self.first), str(self.second))
