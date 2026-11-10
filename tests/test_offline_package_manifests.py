@@ -121,9 +121,9 @@ class PackageInventoryTests(unittest.TestCase):
 
     def test_required_runtime_packages_present_allow_parity_but_not_release(self):
         additions = (
-            "dnsutils\\t1:9.18.30-0ubuntu0.24.04.2\\tamd64\\n"
-            "iputils-ping\\t3:20240117-1build1\\tamd64\\n"
-            "curl\\t8.5.0-2ubuntu10.6\\tamd64\\n"
+            "dnsutils\t1:9.18.30-0ubuntu0.24.04.2\tamd64\n"
+            "iputils-ping\t3:20240117-1build1\tamd64\n"
+            "curl\t8.5.0-2ubuntu10.6\tamd64\n"
         )
         self.first.write_text(BASE + additions)
         self.second.write_text(BASE + additions)
@@ -148,13 +148,13 @@ class PackageInventoryTests(unittest.TestCase):
 
     def test_missing_one_required_package_on_second_candidate_is_unverified(self):
         additions = (
-            "dnsutils\\t1:9.18.30-0ubuntu0.24.04.2\\tamd64\\n"
-            "iputils-ping\\t3:20240117-1build1\\tamd64\\n"
-            "curl\\t8.5.0-2ubuntu10.6\\tamd64\\n"
+            "dnsutils\t1:9.18.30-0ubuntu0.24.04.2\tamd64\n"
+            "iputils-ping\t3:20240117-1build1\tamd64\n"
+            "curl\t8.5.0-2ubuntu10.6\tamd64\n"
         )
         self.first.write_text(BASE + additions)
         self.second.write_text(BASE + additions.replace(
-            "curl\\t8.5.0-2ubuntu10.6\\tamd64\\n", ""
+            "curl\t8.5.0-2ubuntu10.6\tamd64\n", ""
         ))
         status, report, _ = self.run_cli(
             str(self.first), str(self.second), "--require-dns-runtime"
