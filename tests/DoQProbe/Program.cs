@@ -137,7 +137,7 @@ internal static class Program
         byte[] query = Query();
         byte[] correct = SyntheticResponse(query);
         VerifyAnswer(query, correct);
-        foreach (var offset in new[] { 1, 2, 3, 4, 5, correct.Length - 1 })
+        foreach (var offset in new[] { 1, 3, 4, 5, correct.Length - 1 })
         {
             var changed = (byte[])correct.Clone();
             changed[offset] ^= 1;
@@ -146,6 +146,15 @@ internal static class Program
             catch (InvalidDataException) { denied = true; }
             if (!denied) throw new InvalidDataException();
         }
+        // A changed response RD bit is allowed by DNS; a changed opcode is
+        // not. Test the actual forbidden bit rather than assuming all flags
+        // must equal one fixed response header.
+        var opcode = (byte[])correct.Clone();
+        opcode[2] ^= 0x08;
+        bool invalidOpcode = false;
+        try { VerifyAnswer(query, opcode); }
+        catch (InvalidDataException) { invalidOpcode = true; }
+        if (!invalidOpcode) throw new InvalidDataException();
         bool truncated = false;
         try { VerifyAnswer(query, correct[..^1]); }
         catch (InvalidDataException) { truncated = true; }
