@@ -26,8 +26,8 @@ class UnsafeManifest(ValueError):
     pass
 
 
-def read_owner_manifest(path: Path) -> dict[tuple[str, str], str]:
-    """Read one bounded owner-only regular file without following its final link."""
+def _read_manifest_with_inode(path: Path) -> tuple[dict[tuple[str, str], str], tuple[int, int]]:
+    """Read a bounded owner-owned file and return the exact opened inode."""
     if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "geteuid"):
         raise UnsafeManifest("secure file operations unavailable")
     fd = None
@@ -49,6 +49,13 @@ def read_owner_manifest(path: Path) -> dict[tuple[str, str], str]:
             payload.extend(block)
         if len(payload) > MAX_BYTES:
             raise UnsafeManifest("input exceeds limit")
+        after = os.fstat(fd)
+        if (len(payload) != item.st_size or
+                (after.st_dev, after.st_ino) != (item.st_dev, item.st_ino) or
+                after.st_size != item.st_size or
+                after.st_mtime_ns != item.st_mtime_ns or
+                after.st_ctime_ns != item.st_ctime_ns):
+            raise UnsafeManifest("input changed during inspection")
     except OSError as exc:
         raise UnsafeManifest("unavailable input file") from exc
     finally:
@@ -79,11 +86,22 @@ def read_owner_manifest(path: Path) -> dict[tuple[str, str], str]:
         if key in records:
             raise UnsafeManifest("duplicate package")
         records[key] = version
+    return records, (item.st_dev, item.st_ino)
+
+
+def read_owner_manifest(path: Path) -> dict[tuple[str, str], str]:
+    """Preserve the existing public parser API; never return filesystem IDs."""
+    records, _ = _read_manifest_with_inode(path)
     return records
 
 
 def compare(first: Path, second: Path) -> dict[str, object]:
-    a, b = read_owner_manifest(first), read_owner_manifest(second)
+    a, identity_a = _read_manifest_with_inode(first)
+    b, identity_b = _read_manifest_with_inode(second)
+    # Comparing an identical inode under two path spellings is not evidence
+    # of two independently produced candidate-image inventories.
+    if identity_a == identity_b:
+        raise UnsafeManifest("candidate inventories share one source file")
     return {
         "status": "identical" if a == b else "drift",
         "first_count": len(a),

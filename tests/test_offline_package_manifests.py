@@ -56,6 +56,56 @@ class PackageInventoryTests(unittest.TestCase):
         self.assertFalse(report["release_authorized"])
         self.assertEqual(report["comparison"], "offline_read_only")
 
+    def test_same_underlying_inventory_cannot_be_compared_to_itself(self):
+        # Verifying one candidate file against itself is a false proof of
+        # independently reproduced package metadata, even when it is valid.
+        for candidate in (self.first, self.dir / "alias" / ".." / "one.tsv"):
+            with self.subTest(candidate=str(candidate)):
+                (self.dir / "alias").mkdir(exist_ok=True)
+                code, report, raw = self.run_cli(
+                    str(self.first), str(candidate)
+                )
+                self.assertEqual(code, 2)
+                self.assertEqual(report["status"], "unverified")
+                self.assertFalse(report["release_authorized"])
+                self.assertNotIn(str(self.dir), raw)
+
+    def test_distinct_identical_inventory_files_still_compare(self):
+        self.assertNotEqual(self.first.stat().st_ino, self.second.stat().st_ino)
+        status, report, _ = self.run_cli(str(self.first), str(self.second))
+        self.assertEqual(status, 0)
+        self.assertEqual(report["status"], "identical")
+
+    def test_input_mutated_during_snapshot_fails_closed(self):
+        # A deterministic synthetic fstat time transition catches changes
+        # even when the read still returns exactly the original byte count.
+        from unittest.mock import patch
+        from compare_offline_package_manifests import _read_manifest_with_inode
+        real_fstat = os.fstat
+        calls = 0
+
+        def changed_after_read(fd):
+            nonlocal calls
+            calls += 1
+            observed = real_fstat(fd)
+            if calls >= 2:
+                # os.stat_result lacks dataclass semantics; use a tuple copy
+                # for test modification of the nanosecond metadata.
+                class Changed:
+                    def __init__(self, original):
+                        self.st_dev = original.st_dev
+                        self.st_ino = original.st_ino
+                        self.st_size = original.st_size
+                        self.st_mtime_ns = original.st_mtime_ns + 1
+                        self.st_ctime_ns = original.st_ctime_ns
+                return Changed(observed)
+            return observed
+
+        with patch("compare_offline_package_manifests.os.fstat",
+                   side_effect=changed_after_read):
+            with self.assertRaises(UnsafeManifest):
+                _read_manifest_with_inode(self.first)
+
     def test_drift_detected_without_package_names_or_paths(self):
         self.second.write_text(DRIFT)
         status, report, raw = self.run_cli(str(self.first), str(self.second))
