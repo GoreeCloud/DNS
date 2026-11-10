@@ -164,6 +164,7 @@ internal static class Program
     private static async Task ReadExactlyAsync(
         QuicStream stream, Memory<byte> buffer, CancellationToken cancellation)
     {
+        if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException();
         while (buffer.Length > 0)
         {
             int got = await stream.ReadAsync(buffer, cancellation);
@@ -174,6 +175,7 @@ internal static class Program
 
     private static async Task LoopbackAsync()
     {
+        if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException();
         if (Environment.GetEnvironmentVariable("GC_DNS_DOQ_ISOLATED_TEST") != "1" ||
             (!File.Exists("/.dockerenv") && !File.Exists("/run/.containerenv")))
             throw new InvalidOperationException();
