@@ -49,6 +49,24 @@ class DoqSourceContracts(unittest.TestCase):
         ):
             self.assertIn(fragment, self.source)
 
+    def test_exact_framed_dns_rejects_overlong_truncated_and_mismatch(self):
+        for fragment in (
+            "private static int DecodeFrameLength(",
+            "private static void VerifyExactFramedAnswer(",
+            "VerifyExactFramedAnswer(query, framed);",
+            "VerifyBadFrameRefused(query, []);",
+            "VerifyBadFrameRefused(query, [0]);",
+            "VerifyBadFrameRefused(query, [0, 0]);",
+            "VerifyBadFrameRefused(query, [0x10, 0x01]);",
+            "VerifyBadFrameRefused(query, framed[..^1]);",
+            "VerifyBadFrameRefused(query, [.. framed, 0]);",
+            "VerifyBadFrameRefused(query, shortDeclared);",
+            "VerifyBadFrameRefused(query, longDeclared);",
+            "VerifyBadFrameRefused(query, changedBody);",
+            "int size = DecodeFrameLength(length);",
+        ):
+            self.assertIn(fragment, self.source)
+
     def test_selftest_compiled_in_pinned_sdk_without_real_quic_listener(self):
         self.assertIn('<TargetFramework>net10.0</TargetFramework>', self.project)
         self.assertIn('dotnet build tests/DoQProbe/DoQProbe.csproj', self.ci)
