@@ -42,17 +42,37 @@ class HostListenerPreflightTests(unittest.TestCase):
             self.assertTrue(all(value == "not_observed" for value in result["listeners"].values()))
 
     def test_occupied_port_is_reported_without_addresses(self):
-        secret = "private-host-token-never-in-output"
         with patch("dns_host_port_preflight.subprocess.run",
-                   return_value=SimpleNamespace(returncode=0,
-                                                stdout=SOCKETS + "\n" + secret)):
+                   return_value=SimpleNamespace(returncode=0, stdout=SOCKETS)):
             report = io.StringIO()
             with contextlib.redirect_stdout(report):
                 self.assertEqual(main([]), 1)
             result = json.loads(report.getvalue())
             self.assertEqual(result["conclusion"], "listener_present")
             self.assertNotIn("127.0.0.53", report.getvalue())
-            self.assertNotIn(secret, report.getvalue())
+            self.assertFalse(result["production_cutover_authorized"])
+
+    def test_unknown_socket_rows_fail_closed_without_leaking_their_text(self):
+        private_text = "private-host-token-never-in-output"
+        for listing in (
+            private_text,
+            SOCKETS + "\n" + private_text,
+            "tcp ESTAB 0 0 127.0.0.1:53 127.0.0.1:10000",
+            "udp INVALID 0 0 [::]:53 [::]:*",
+        ):
+            with self.subTest(listing_length=len(listing)), patch(
+                "dns_host_port_preflight.subprocess.run",
+                return_value=SimpleNamespace(returncode=0, stdout=listing),
+            ):
+                report = io.StringIO()
+                with contextlib.redirect_stdout(report):
+                    self.assertEqual(main([]), 2)
+                result = json.loads(report.getvalue())
+                self.assertEqual(result["conclusion"], "unknown")
+                self.assertTrue(all(x == "unknown" for x in result["listeners"].values()))
+                self.assertFalse(result["production_cutover_authorized"])
+                self.assertNotIn(private_text, report.getvalue())
+                self.assertNotIn("127.0.0.1", report.getvalue())
 
     def test_malformed_tcp_row_fails_closed(self):
         with self.assertRaises(ValueError):

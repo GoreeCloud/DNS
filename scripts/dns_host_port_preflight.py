@@ -26,10 +26,18 @@ def classify_sockets(output: str) -> dict[str, str]:
         if not fields:
             continue
         protocol = fields[0].lower()
+        # We asked ss specifically for TCP/UDP listening sockets. An
+        # unexpected nonempty row may hide a bound port on an unfamiliar ss
+        # implementation; never report "not_observed" from partial parsing.
         if protocol not in ("tcp", "udp"):
-            continue
+            raise ValueError("unrecognized listening socket protocol")
         if len(fields) < 5:
             raise ValueError("incomplete socket row")
+        state = fields[1].upper()
+        if (protocol == "tcp" and state != "LISTEN") or (
+            protocol == "udp" and state != "UNCONN"
+        ):
+            raise ValueError("unexpected listening socket state")
         found = PORT_SUFFIX.search(fields[4])
         if not found:
             raise ValueError("unrecognized socket address")
