@@ -88,7 +88,10 @@ class PackageInventoryTests(unittest.TestCase):
             nonlocal calls
             calls += 1
             observed = real_fstat(fd)
-            if calls >= 2:
+            if calls >= 3:
+                # The private directory is now fstat'ed first. Change the
+                # third observation: the AFTER-read file descriptor, never
+                # the private parent's or BEFORE-read file metadata.
                 # os.stat_result lacks dataclass semantics; use a tuple copy
                 # for test modification of the nanosecond metadata.
                 class Changed:
