@@ -132,11 +132,56 @@ internal static class Program
         if (!matched || at != r.Length) throw new InvalidDataException();
     }
 
+    private static int DecodeFrameLength(ReadOnlySpan<byte> header)
+    {
+        if (header.Length != 2) throw new InvalidDataException();
+        int size = BinaryPrimitives.ReadUInt16BigEndian(header);
+        if (size < 12 || size > 4096) throw new InvalidDataException();
+        return size;
+    }
+
+    private static void VerifyExactFramedAnswer(byte[] query, byte[] wire)
+    {
+        if (wire.Length < 2) throw new InvalidDataException();
+        int size = DecodeFrameLength(wire.AsSpan(0, 2));
+        if (wire.Length != size + 2) throw new InvalidDataException();
+        VerifyAnswer(query, wire[2..]);
+    }
+
+    private static void VerifyBadFrameRefused(byte[] query, byte[] wire)
+    {
+        bool denied = false;
+        try { VerifyExactFramedAnswer(query, wire); }
+        catch (InvalidDataException) { denied = true; }
+        if (!denied) throw new InvalidDataException();
+    }
+
     private static void SelfTest()
     {
         byte[] query = Query();
         byte[] correct = SyntheticResponse(query);
         VerifyAnswer(query, correct);
+
+        byte[] framed = new byte[correct.Length + 2];
+        BinaryPrimitives.WriteUInt16BigEndian(framed, (ushort)correct.Length);
+        correct.CopyTo(framed.AsSpan(2));
+        VerifyExactFramedAnswer(query, framed);
+        VerifyBadFrameRefused(query, []);
+        VerifyBadFrameRefused(query, [0]);
+        VerifyBadFrameRefused(query, [0, 0]);
+        VerifyBadFrameRefused(query, [0x10, 0x01]); // 4097 bytes exceeds cap.
+        VerifyBadFrameRefused(query, framed[..^1]); // Truncated declared body.
+        VerifyBadFrameRefused(query, [.. framed, 0]); // Extra trailing byte.
+        byte[] shortDeclared = (byte[])framed.Clone();
+        BinaryPrimitives.WriteUInt16BigEndian(shortDeclared, (ushort)(correct.Length - 1));
+        VerifyBadFrameRefused(query, shortDeclared);
+        byte[] longDeclared = (byte[])framed.Clone();
+        BinaryPrimitives.WriteUInt16BigEndian(longDeclared, (ushort)(correct.Length + 1));
+        VerifyBadFrameRefused(query, longDeclared);
+        byte[] changedBody = (byte[])framed.Clone();
+        changedBody[^1] ^= 1;
+        VerifyBadFrameRefused(query, changedBody);
+
         foreach (var offset in new[] { 1, 3, 4, 5, correct.Length - 1 })
         {
             var changed = (byte[])correct.Clone();
@@ -236,8 +281,7 @@ internal static class Program
             await stream.WriteAsync(framed, completeWrites: true, deadline.Token);
             byte[] length = new byte[2];
             await ReadExactlyAsync(stream, length, deadline.Token);
-            int size = BinaryPrimitives.ReadUInt16BigEndian(length);
-            if (size < 12 || size > 4096) throw new InvalidDataException();
+            int size = DecodeFrameLength(length);
             byte[] response = new byte[size];
             await ReadExactlyAsync(stream, response, deadline.Token);
             VerifyAnswer(query, response);
