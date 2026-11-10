@@ -23,10 +23,10 @@ class DockerReleaseInputContracts(unittest.TestCase):
         # One deliberate, reviewed image digest: not merely *any* 64-hex
         # digest. Adding another stage or silently switching CPU/runtime
         # provenance must require an explicit test and release review.
-        from_images = re.findall(r"(?m)^FROM\\s+([^\\s]+)\\s*$", self.docker)
+        from_images = re.findall(r"(?m)^FROM\s+([^\s]+)\s*$", self.docker)
         self.assertEqual(from_images, [EXPECTED_RUNTIME_IMAGE])
         self.assertRegex(self.docker,
-                         r"(?m)^FROM mcr\\.microsoft\\.com/dotnet/aspnet:10\\.0@sha256:[0-9a-f]{64}$")
+                         r"(?m)^FROM mcr\.microsoft\.com/dotnet/aspnet:10\.0@sha256:[0-9a-f]{64}$")
         self.assertNotRegex(self.docker, r"(?m)^FROM [^\n]*:latest(?:\s|$)")
         self.assertNotRegex(self.docker, r"(?m)^FROM mcr\.microsoft\.com/dotnet/aspnet:10\.0$")
 
@@ -37,7 +37,7 @@ class DockerReleaseInputContracts(unittest.TestCase):
             r"packages-microsoft-prod\.deb /$")
         # No second unreviewed remote Dockerfile ADD may introduce moving
         # download bytes or bypass the single pinned bootstrap.
-        remote_adds = re.findall(r"(?m)^ADD\\s+https?://[^\\n]+$", self.docker)
+        remote_adds = re.findall(r"(?m)^ADD\s+https?://[^\n]+$", self.docker)
         self.assertEqual(remote_adds, [EXPECTED_BOOTSTRAP_ADD])
         self.assertIn("RUN set -eu;", self.docker)
         self.assertIn(
