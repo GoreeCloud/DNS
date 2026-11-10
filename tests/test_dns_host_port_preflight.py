@@ -43,7 +43,7 @@ class HostListenerPreflightTests(unittest.TestCase):
             ("udp", 67, "dhcp_udp_67"),
         )
         synthetic = "\n".join(
-            f"{proto} LISTEN 0 4096 [::]:{port} [::]:*"
+            f"{proto} {'UNCONN' if proto == 'udp' else 'LISTEN'} 0 4096 [::]:{port} [::]:*"
             for proto, port, _ in paths
         )
         result = classify_sockets(synthetic)
