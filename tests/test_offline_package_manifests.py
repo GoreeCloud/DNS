@@ -196,6 +196,40 @@ class PackageInventoryTests(unittest.TestCase):
                 self.assertEqual(report["status"], "unverified")
                 self.assertNotIn("bad.tsv", raw)
 
+    def test_private_inventory_rejects_public_parent_without_exposing_path(self):
+        # Matching SHA/version data in mode-0600 files is still not reliable
+        # candidate evidence if the parent directory is publicly accessible.
+        public = self.dir / "public-folder"
+        public.mkdir(mode=0o755)
+        candidate = public / "candidate.tsv"
+        candidate.write_text(BASE)
+        candidate.chmod(0o600)
+        status, report, raw = self.run_cli(str(self.first), str(candidate))
+        self.assertEqual(status, 2)
+        self.assertEqual(report["status"], "unverified")
+        self.assertFalse(report["release_authorized"])
+        self.assertNotIn(str(public), raw)
+        public.chmod(0o700)
+        self.assertEqual(read_owner_manifest(candidate), read_owner_manifest(self.first))
+
+    def test_symlinked_inventory_parent_rejected_and_real_path_accepted(self):
+        target = self.dir / "trusted"
+        target.mkdir(mode=0o700)
+        source = target / "candidate.tsv"
+        source.write_text(BASE)
+        source.chmod(0o600)
+        alias = self.dir / "directory-alias"
+        alias.symlink_to(target, target_is_directory=True)
+        with self.assertRaises(UnsafeManifest):
+            read_owner_manifest(alias / source.name)
+        status, report, raw = self.run_cli(
+            str(self.first), str(alias / source.name)
+        )
+        self.assertEqual(status, 2)
+        self.assertEqual(report["status"], "unverified")
+        self.assertNotIn(str(alias), raw)
+        self.assertEqual(read_owner_manifest(source), read_owner_manifest(self.first))
+
     def test_existing_symlink_hardlink_and_public_permissions_rejected(self):
         linked = self.dir / "linked.tsv"
         linked.symlink_to(self.first)
