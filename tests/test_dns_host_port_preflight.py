@@ -150,6 +150,40 @@ class HostListenerPreflightTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             classify_sockets("x" * 524289)
 
+    def test_two_stable_observations_are_required_for_listener_hints(self):
+        sample = SimpleNamespace(returncode=0, stdout=SOCKETS)
+        with patch("dns_host_port_preflight.subprocess.run",
+                   return_value=sample) as runner:
+            result = gather()
+            self.assertEqual(runner.call_count, 2)
+            self.assertEqual(result["dns_tcp_53"], "observed")
+            self.assertEqual(result["dns_udp_53"], "observed")
+            self.assertEqual(result["management_tcp_5380"], "observed")
+
+    def test_listener_changes_between_reads_are_unknown_not_available(self):
+        first = SimpleNamespace(returncode=0, stdout=SOCKETS)
+        second = SimpleNamespace(returncode=0, stdout="")
+        with patch("dns_host_port_preflight.subprocess.run",
+                   side_effect=[first, second]) as runner:
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(main([]), 2)
+            self.assertEqual(runner.call_count, 2)
+            record = json.loads(output.getvalue())
+            self.assertEqual(record["conclusion"], "unknown")
+            self.assertTrue(all(state == "unknown"
+                                for state in record["listeners"].values()))
+            self.assertNotIn("127.0.0.53", output.getvalue())
+            self.assertFalse(record["production_cutover_authorized"])
+
+    def test_failure_of_second_read_never_keeps_first_port_snapshot(self):
+        first = SimpleNamespace(returncode=0, stdout=SOCKETS)
+        with patch("dns_host_port_preflight.subprocess.run",
+                   side_effect=[first, FileNotFoundError("private")]) as runner:
+            result = gather()
+            self.assertEqual(runner.call_count, 2)
+            self.assertTrue(all(x == "unknown" for x in result.values()))
+
     def test_arguments_fail_closed_without_running_ss(self):
         with patch("dns_host_port_preflight.subprocess.run") as runner:
             report = io.StringIO()
