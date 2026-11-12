@@ -68,13 +68,21 @@ def classify_sockets(output: str) -> dict[str, str]:
 def gather() -> dict[str, str]:
     """Never allow a command or parse failure to be interpreted as free ports."""
     try:
-        result = subprocess.run(
-            ["ss", "-H", "-lntu"], capture_output=True, text=True,
-            check=False, timeout=4,
-        )
-        if result.returncode:
-            raise ValueError("socket inspection failed")
-        return classify_sockets(result.stdout)
+        # Two independent snapshots catch listener starts/stops during a
+        # migration preflight. A stable count is still only a hint; another
+        # process could bind immediately afterward or swap socket owners.
+        snapshots = []
+        for _ in range(2):
+            result = subprocess.run(
+                ["ss", "-H", "-lntu"], capture_output=True, text=True,
+                check=False, timeout=4,
+            )
+            if result.returncode:
+                raise ValueError("socket inspection failed")
+            snapshots.append(classify_sockets(result.stdout))
+        if snapshots[0] != snapshots[1]:
+            raise ValueError("listener observations changed during inspection")
+        return snapshots[0]
     except (OSError, subprocess.TimeoutExpired, ValueError, UnicodeError):
         return {label: "unknown" for label, _, _ in PORTS}
 
