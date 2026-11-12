@@ -24,6 +24,9 @@ PORTS = (
     ("dns_http_tcp_80", "tcp", 80),
     ("dns_http_tcp_8053", "tcp", 8053),
     ("management_tcp_5380", "tcp", 5380),
+    # Existing AdGuard-to-Caddy bridge socket on the primary VPS. Its absence
+    # is only a listener hint, not proof that the systemd unit is healthy.
+    ("adguard_caddy_proxy_tcp_3001", "tcp", 3001),
     ("management_tls_tcp_53443", "tcp", 53443),
     ("dhcp_udp_67", "udp", 67),
 )
