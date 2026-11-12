@@ -77,7 +77,10 @@ def gather() -> dict[str, str]:
                 ["ss", "-H", "-lntu"], capture_output=True, text=True,
                 check=False, timeout=4,
             )
-            if result.returncode:
+            # Even a zero exit with diagnostic stderr can indicate partial
+            # socket enumeration. Such output cannot justify "not_observed".
+            # Never print diagnostics: they may include local host details.
+            if result.returncode or getattr(result, "stderr", ""):
                 raise ValueError("socket inspection failed")
             snapshots.append(classify_sockets(result.stdout))
         if snapshots[0] != snapshots[1]:
