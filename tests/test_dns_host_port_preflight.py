@@ -176,6 +176,28 @@ class HostListenerPreflightTests(unittest.TestCase):
             self.assertNotIn("127.0.0.53", output.getvalue())
             self.assertFalse(record["production_cutover_authorized"])
 
+    def test_zero_exit_with_diagnostics_is_unknown_and_redacted(self):
+        for index in (0, 1):
+            with self.subTest(diagnostic_snapshot=index):
+                entries = [
+                    SimpleNamespace(returncode=0, stdout=SOCKETS, stderr=""),
+                    SimpleNamespace(returncode=0, stdout=SOCKETS, stderr=""),
+                ]
+                entries[index].stderr = "private-interface-token: partial results"
+                with patch("dns_host_port_preflight.subprocess.run",
+                           side_effect=entries) as runner:
+                    output = io.StringIO()
+                    with contextlib.redirect_stdout(output):
+                        self.assertEqual(main([]), 2)
+                    self.assertEqual(runner.call_count, index + 1)
+                    report = json.loads(output.getvalue())
+                    self.assertEqual(report["conclusion"], "unknown")
+                    self.assertTrue(all(value == "unknown" for value
+                                        in report["listeners"].values()))
+                    self.assertFalse(report["production_cutover_authorized"])
+                    self.assertNotIn("private-interface-token", output.getvalue())
+                    self.assertNotIn("127.0.0.53", output.getvalue())
+
     def test_failure_of_second_read_never_keeps_first_port_snapshot(self):
         first = SimpleNamespace(returncode=0, stdout=SOCKETS)
         with patch("dns_host_port_preflight.subprocess.run",
