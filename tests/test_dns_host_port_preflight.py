@@ -29,7 +29,29 @@ class HostListenerPreflightTests(unittest.TestCase):
         self.assertEqual(observed, {
             "dns_tcp_53", "dns_udp_53", "management_tcp_5380",
         })
-        self.assertEqual(len(results), 11)
+        self.assertEqual(len(results), 12)
+
+    def test_adguard_caddy_bridge_listener_is_reported_without_endpoint_disclosure(self):
+        present = classify_sockets(
+            "tcp LISTEN 0 4096 172.19.0.1:3001 0.0.0.0:*"
+        )
+        self.assertEqual(present["adguard_caddy_proxy_tcp_3001"], "observed")
+        self.assertEqual(present["dns_tcp_53"], "not_observed")
+        absent = classify_sockets(
+            "tcp LISTEN 0 4096 172.19.0.1:13001 0.0.0.0:*"
+        )
+        self.assertEqual(absent["adguard_caddy_proxy_tcp_3001"], "not_observed")
+        with patch("dns_host_port_preflight.subprocess.run",
+                   return_value=SimpleNamespace(returncode=0, stdout=(
+                       "tcp LISTEN 0 4096 172.19.0.1:3001 0.0.0.0:*"
+                   ))):
+            report = io.StringIO()
+            with contextlib.redirect_stdout(report):
+                self.assertEqual(main([]), 1)
+            parsed = json.loads(report.getvalue())
+            self.assertEqual(parsed["listeners"]["adguard_caddy_proxy_tcp_3001"], "observed")
+            self.assertFalse(parsed["production_cutover_authorized"])
+            self.assertNotIn("172.19.0.1", report.getvalue())
 
     def test_encrypted_http_and_dhcp_surfaces_are_checked_separately(self):
         paths = (
