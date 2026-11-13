@@ -27,7 +27,7 @@ The existing repository smoke runners are not implicitly changed by these new fi
 
 ## Scope and limitations
 
-The **counts** were selected to resemble an owner-verified aggregate source AdGuard Home configuration: 12 subscriptions with 10 enabled, three blocked hosts, and two persistent clients. These are **new synthetic entries, not imports, copies, conversions or views** of the owner's actual private policies.
+The **counts** are illustrative synthetic test-fixture choices: 12 declared subscriptions, 10 enabled, three blocked names, and two loopback clients. These are **new synthetic entries**, not imports, copies, conversions or views of any real person's DNS settings.
 
 The tests do **not** establish: source custom-rule syntax/precedence equivalence, client identity/profile mapping, actual external filter subscription format/refresh and availability, upstream or bootstrap resolver parity, DNSSEC chain validation, logging/retention parity, publicly reachable encrypted DNS, or operational cutover readiness. In particular, an allowed synthetic query can yield `SERVFAIL` with no outside network: the assertion proves **suppression of the distinctive blocked A address**, not successful recursive resolution.
 
