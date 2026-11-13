@@ -25,6 +25,8 @@ These are **session-level test modules, not standalone executables**. Run them o
 
 The existing repository smoke runners are not implicitly changed by these new files. No unattended deployment, privileged host operation, public port opening, production DNS mutation or external blocklist download is requested. A portable opt-in rootless runner can be considered in a separate reviewed integration step.
 
+**Automated static safeguards:** `tests/test_synthetic_dns_policy_smoke.py` is included in the repository's existing `test_*.py` CI discovery. It statically checks both Perl scripts' isolation guards, synthetic fixtures, expected policy semantics, Perl syntax, and refusal of direct host execution (11 tests). This CI job does **not** run a DNS service or perform the optional rootless runtime test. The actual candidate runtime proof remains the separately observed, dated isolated-container test.
+
 ## Scope and limitations
 
 The **counts** are illustrative synthetic test-fixture choices: 12 declared subscriptions, 10 enabled, three blocked names, and two loopback clients. These are **new synthetic entries**, not imports, copies, conversions or views of any real person's DNS settings.
