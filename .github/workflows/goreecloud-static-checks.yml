@@ -34,6 +34,9 @@ jobs:
           perl -c tests/smoke_login_lockout.pl
           perl -c tests/smoke_dnssec.pl
           perl -c tests/smoke_dnssec_nodata.pl
+          bash -n tests/run_advanced_runtime.sh
+          perl -c tests/smoke_advanced_runtime.pl
+          perl -c tests/synthetic_offline_dns_upstream.pl
       - name: Check committed patch whitespace
         run: git diff --check HEAD^ HEAD
 
@@ -61,6 +64,8 @@ jobs:
           dotnet build ../TechnitiumLibrary/TechnitiumLibrary.Security.OTP/TechnitiumLibrary.Security.OTP.csproj -c Release --nologo --verbosity quiet
       - name: Build GoreeCloud DNS application
         run: dotnet build DnsServerApp/DnsServerApp.csproj -c Release --nologo --verbosity quiet
+      - name: Compile Advanced Blocking App source (no install or runtime)
+        run: dotnet build Apps/AdvancedBlockingApp/AdvancedBlockingApp.csproj -c Release --nologo --verbosity quiet
       - name: Build and self-test source-owned offline DoQ wire probe
         run: |
           dotnet build tests/DoQProbe/DoQProbe.csproj -c Release --nologo --verbosity quiet

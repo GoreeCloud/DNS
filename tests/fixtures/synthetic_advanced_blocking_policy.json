@@ -1,0 +1,53 @@
+{
+  "enableBlocking": true,
+  "blockingAnswerTtl": 30,
+  "blockListUrlUpdateIntervalHours": 24,
+  "blockListUrlUpdateIntervalMinutes": 0,
+  "localEndPointGroupMap": {},
+  "networkGroupMap": {
+    "127.0.0.2": "bypass",
+    "127.0.0.3": "filtered"
+  },
+  "groups": [
+    {
+      "name": "filtered",
+      "enableBlocking": true,
+      "allowTxtBlockingReport": false,
+      "blockAsNxDomain": false,
+      "blockingAddresses": [
+        "0.0.0.0",
+        "::"
+      ],
+      "allowed": [],
+      "blocked": [
+        "policy-block-1.example"
+      ],
+      "allowListUrls": [],
+      "blockListUrls": [],
+      "allowedRegex": [],
+      "blockedRegex": [],
+      "regexAllowListUrls": [],
+      "regexBlockListUrls": [],
+      "adblockListUrls": []
+    },
+    {
+      "name": "bypass",
+      "enableBlocking": false,
+      "allowTxtBlockingReport": false,
+      "blockAsNxDomain": false,
+      "blockingAddresses": [
+        "0.0.0.0",
+        "::"
+      ],
+      "allowed": [],
+      "blocked": [],
+      "allowListUrls": [],
+      "blockListUrls": [],
+      "allowedRegex": [],
+      "blockedRegex": [],
+      "regexAllowListUrls": [],
+      "regexBlockListUrls": [],
+      "adblockListUrls": []
+    }
+  ]
+}
