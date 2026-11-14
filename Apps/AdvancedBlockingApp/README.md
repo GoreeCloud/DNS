@@ -18,6 +18,8 @@ The Advanced Blocking App extends the DNS server's blocking capabilities by allo
 
 All three bundled sample groups now explicitly disable these reports. Existing configurations explicitly set to `true` **remain opted in** and are not automatically rewritten. Operators can intentionally enable reporting for a narrowly scoped, authorized diagnostic session and disable it afterward.
 
+**External filter subscriptions are also opt-in in the bundled example.** The example no longer contains remote `blockListUrls`; each sample group starts with that list empty. Add only reviewed, owner-approved provider URLs when the intended data-sharing and update behavior is understood. The app's existing support for explicit subscriptions is unchanged, and an existing configuration containing URLs is **not automatically migrated or cleared**. This change avoids outbound third-party list requests merely from installing the example; it does not imply the resolver itself has no other network access.
+
 **Rollout boundary:** This is an unmerged development proposal, not production policy enforcement. It does not establish query-log retention, encrypted-DNS client identity, authoritative-zone handling, DNSSEC validity, Wardveil packet protection, GoreeCloud Mesh integration, or AdGuard compatibility.
 
 ## ⚠️ Important Warning:  Overlap with Default Blocking
