@@ -35,7 +35,8 @@ sub dns {
  my($rcode)=$text=~/status:\s*([A-Z]+),/;$rcode //='UNKNOWN';
  my $blocked=($text=~/^policy-block-1\.example\.\s+\d+\s+IN\s+A\s+0\.0\.0\.0\s*$/m)?1:0;
  my $leak=($text=~/source=advanced-blocking-app|blockListUrl=|group=filtered/)?1:0;
- return[$rcode,$blocked,$leak];
+ my $local_answer=($text=~/^policy-block-1\.example\.\s+\d+\s+IN\s+A\s+192\.0\.2\.53\s*$/m)?1:0;
+ return[$rcode,$blocked,$leak,$local_answer];
 }
 my $before=dns('127.0.0.3',0,'A');
 !$before->[1] or die "FAIL: initially blocked\n";
@@ -46,10 +47,29 @@ open my $h,'>','/work/session-header' or die "FAIL: auth header file\n";
 print {$h} "Authorization: Bearer $login->{token}\n";close $h;
 chmod 0600,'/work/session-header' or die "FAIL: auth header mode\n";undef $login;
 print "PASS: ephemeral admin session\n";
-api('/api/settings/set','get','enableBlocking=false','recursion=AllowOnlyForPrivateNetworks');
+api('/api/settings/set','get','enableBlocking=false','recursion=Allow','forwarders=127.0.0.4:5301','forwarderProtocol=Udp','forwarderRetries=1','forwarderTimeout=1500','dnssecValidation=false');
 my $settings=api('/api/settings/get','get');
 ref($settings->{response}) eq 'HASH' && !$settings->{response}{enableBlocking} or die "FAIL: builtin still enabled\n";
 print "PASS: built-in blocking disabled only in lab\n";
+# The loopback-only synthetic upstream returns a RFC5737 test address. Do not
+# create a local authoritative zone: the app request blocker is on the recursive path.
+my $fw=api('/api/settings/get','get');
+my $forwarders=$fw->{response}{forwarders};
+ref($forwarders) eq 'ARRAY' && @$forwarders==1
+    or die "FAIL: synthetic forwarder readback unavailable\n";
+print "DIAGNOSTIC: configured_local_forwarder_match=".
+      (($forwarders->[0] eq '127.0.0.4:5301')?1:0).
+      " recursion_allow=".(($fw->{response}{recursion}//'') eq 'Allow'?1:0)."\n";
+# Invalidate the SERVFAIL cache from the deliberately unforwarded preinstall probe.
+api('/api/cache/flush','get');
+for my $tcp(0,1){for my $client('127.0.0.2','127.0.0.3'){
+ my $pre=dns($client,$tcp,'A');
+ print "DIAGNOSTIC: prior_to_plugin transport=".($tcp?'tcp':'udp').
+       " status=$pre->[0] blocked=$pre->[1] local=$pre->[3]\n";
+ $pre->[0] eq 'NOERROR' && !$pre->[1] && $pre->[3]
+  or die "FAIL: pre-plugin offline forwarded answer unavailable\n";
+}}
+print "PASS: isolated loopback-forwarded answer resolves for both clients before plugin\n";
 my $r=api('/api/apps/install?name=AdvancedBlocking','post','-F','file=@/work/AdvancedBlocking.zip;type=application/zip');
 my $entries=$r->{response}{installedApp}{dnsApps};
 ref($entries) eq 'ARRAY' or die "FAIL: no loaded DNS app handlers\n";
@@ -70,10 +90,12 @@ for my $g(@{$v->{groups}}){ref($g) eq 'HASH' && exists($g->{allowTxtBlockingRepo
 print "PASS: two synthetic groups with metadata report disabled\n";
 for my $tcp(0,1){
  my $f=dns('127.0.0.3',$tcp,'A');my $b=dns('127.0.0.2',$tcp,'A');
- print "DIAGNOSTIC: ".($tcp?'tcp':'udp')." filtered=$f->[0]/$f->[1] bypass=$b->[0]/$b->[1]\n";
- $f->[0] eq 'NOERROR' && $f->[1] && !$b->[1] or die "FAIL: app per-client wire enforcement\n";
+ print "DIAGNOSTIC: ".($tcp?'tcp':'udp')." filtered=$f->[0]/$f->[1]/$f->[3] bypass=$b->[0]/$b->[1]/$b->[3]\n";
+ $f->[0] eq 'NOERROR' && $f->[1] && !$f->[3]
+  && $b->[0] eq 'NOERROR' && !$b->[1] && $b->[3]
+  or die "FAIL: app per-client wire enforcement or offline authoritative bypass\n";
 }
-print "PASS: per-client app DNS answers differ over UDP and TCP\n";
+print "PASS: filtered and bypassed clients get distinct successful loopback-forwarded UDP and TCP answers\n";
 my $txt=dns('127.0.0.3',0,'TXT');!$txt->[2] or die "FAIL: blocking report leaked\n";
 print "PASS: TXT/EDNS report absent from synthetic blocked DNS response\n";
 api('/api/user/logout','get');
