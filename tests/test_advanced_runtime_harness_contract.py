@@ -87,6 +87,62 @@ class AdvancedRuntimeHarnessContract(unittest.TestCase):
         self.assertIn("0\\.0\\.0\\.0", self.perl)
         self.assertIn("app per-client wire enforcement", self.perl)
 
+    def test_disposable_forwarder_created_only_on_loopback(self):
+        stub = (ROOT / "tests" / "synthetic_offline_dns_upstream.pl").read_text("utf-8")
+        self.assertIn("127.0.0.4", stub)
+        self.assertIn("5301", stub)
+        self.assertIn("192,0,2,53", stub)
+        self.assertIn("network egress interface present", stub)
+        self.assertIn("synthetic_offline_dns_upstream.pl", self.sh)
+        self.assertIn("forwarders=127.0.0.4:5301", self.perl)
+        self.assertNotIn("/api/zones/create", self.perl)
+        self.assertIn("pre-plugin offline forwarded answer unavailable", self.perl)
+        self.assertIn("loopback-forwarded answer", self.perl)
+
+    def test_bypass_requires_successful_local_answer(self):
+        self.assertIn("$b->[0] eq 'NOERROR'", self.perl)
+        self.assertIn("$b->[3]", self.perl)
+        self.assertIn("&& !$b->[1]", self.perl)
+        self.assertIn("distinct successful loopback-forwarded UDP and TCP answers", self.perl)
+
+    def test_filtered_and_bypass_records_are_distinct(self):
+        self.assertIn("192\\.0\\.2\\.53", self.perl)
+        self.assertIn("0\\.0\\.0\\.0", self.perl)
+        self.assertIn("$f->[1] && !$f->[3]", self.perl)
+
+    def test_synthetic_upstream_is_killed_on_exit(self):
+        self.assertIn('kill "$pid" "$upstream_pid"', self.sh)
+        self.assertIn('wait "$pid" "$upstream_pid"', self.sh)
+        self.assertIn("DNS_SERVER_RECURSION=Deny", self.sh)
+        self.assertIn("forwarderTimeout=1500", self.perl)
+
+    def test_dnssec_validation_disabled_only_in_disposable_lab(self):
+        self.assertIn("dnssecValidation=false", self.perl)
+        self.assertIn("DNS_SERVER_RECURSION=Deny", self.sh)
+        self.assertIn("forwarderProtocol=Udp", self.perl)
+        self.assertIn("forwarderTimeout=1500", self.perl)
+
+    def test_upstream_uses_only_reserved_example_name_and_testnet(self):
+        stub = (ROOT / "tests" / "synthetic_offline_dns_upstream.pl").read_text("utf-8")
+        self.assertIn("policy-block-1.example", stub)
+        self.assertIn("192,0,2,53", stub)
+        self.assertIn("127.0.0.4", stub)
+        self.assertIn("LocalPort=>5301", stub)
+        self.assertNotIn("0.0.0.0", stub)
+        self.assertNotIn("http://", stub)
+        self.assertNotIn("https://", stub)
+
+    def test_forwarder_endpoint_and_cache_safety_checked(self):
+        self.assertIn("configured_local_forwarder_match", self.perl)
+        self.assertIn("recursion_allow", self.perl)
+        self.assertIn("/api/cache/flush", self.perl)
+        self.assertIn("offline forwarded answer unavailable", self.perl)
+
+    def test_authoritative_domain_not_used_to_claim_blocking(self):
+        self.assertNotIn("/api/zones/create", self.perl)
+        self.assertNotIn("/api/zones/records/add", self.perl)
+        self.assertIn("distinct successful loopback-forwarded UDP and TCP answers", self.perl)
+
     def test_privacy_reporting_opt_out_verified(self):
         self.assertIn("allowTxtBlockingReport", self.perl)
         self.assertIn("blocking report enabled", self.perl)
