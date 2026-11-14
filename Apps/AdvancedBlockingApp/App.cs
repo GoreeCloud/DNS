@@ -891,7 +891,7 @@ namespace AdvancedBlocking
 
                 _name = jsonGroup.GetProperty("name").GetString()!;
                 _enableBlocking = jsonGroup.GetPropertyValue("enableBlocking", true);
-                _allowTxtBlockingReport = jsonGroup.GetPropertyValue("allowTxtBlockingReport", true);
+                _allowTxtBlockingReport = jsonGroup.GetPropertyValue("allowTxtBlockingReport", false);
                 _blockAsNxDomain = jsonGroup.GetPropertyValue("blockAsNxDomain", false);
 
                 if (jsonGroup.TryGetProperty("blockingAddresses", out JsonElement jsonBlockingAddresses))
