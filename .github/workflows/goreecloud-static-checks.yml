@@ -36,6 +36,7 @@ jobs:
           perl -c tests/smoke_dnssec_nodata.pl
           bash -n tests/run_advanced_runtime.sh
           perl -c tests/smoke_advanced_runtime.pl
+          perl -c tests/synthetic_offline_dns_upstream.pl
       - name: Check committed patch whitespace
         run: git diff --check HEAD^ HEAD
 
