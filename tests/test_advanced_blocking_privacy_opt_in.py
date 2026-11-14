@@ -65,6 +65,26 @@ class AdvancedBlockingPrivacyOptInContract(unittest.TestCase):
                 self.assertIn("allowTxtBlockingReport", group)
                 self.assertIs(group["allowTxtBlockingReport"], False)
 
+    def test_sample_has_no_remote_blocklist_subscriptions(self):
+        remote_fields = ("allowListUrls", "blockListUrls",
+                         "regexAllowListUrls", "regexBlockListUrls",
+                         "adblockListUrls")
+        for group in self.sample["groups"]:
+            with self.subTest(group=group.get("name", "unnamed")):
+                for field in remote_fields:
+                    self.assertIn(field, group)
+                    self.assertEqual(group[field], [], field)
+
+    def test_sample_no_unapproved_remote_endpoints(self):
+        self.assertNotIn("https://", self.sample_text)
+        self.assertNotIn("http://", self.sample_text)
+        self.assertNotIn("raw.githubusercontent.com", self.sample_text)
+
+    def test_docs_require_explicit_remote_subscription(self):
+        self.assertIn("External filter subscriptions are also opt-in", self.docs)
+        self.assertIn("existing configuration containing URLs", self.docs)
+        self.assertIn("not automatically migrated or cleared", self.docs)
+
     def test_sample_document_has_no_true_flag(self):
         self.assertNotRegex(self.sample_text, r'"allowTxtBlockingReport"\s*:\s*true')
 
