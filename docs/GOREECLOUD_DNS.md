@@ -194,3 +194,15 @@ The redacted, read-only host socket preflight now requires **two independently p
 ## November 12, 2026 — treat `ss` diagnostics as incomplete listener evidence
 
 Both passes of the redacted, read-only DNS listener inventory now require the fixed `ss -H -lntu` command to **exit successfully with empty stderr**. Even exit status zero can accompany diagnostic warnings, and the probe must not label ports `not_observed` using a potentially partial inventory. Either pass with stderr (including after a previously valid pass) results in all labels `unknown`, fixed exit status 2, and no raw host-interface text. The added synthetic regression exercises both positions. This guard does not prove ownership, real binding capability, resolver functionality, encrypted DNS protocol acceptance, TLS, or production cutover readiness.
+
+## Read-only NetBird/private-client DNS wire verification — development utility
+
+To recheck a **specified numeric** private or shared-address-space resolver from a client, run:
+
+```sh
+python3 scripts/dns_private_client_path_probe.py --server YOUR_AUTHORIZED_PRIVATE_RESOLVER_IP
+```
+
+This opt-in tool sends **one fixed `localhost. A IN` DNS query over UDP/53 and one over TCP/53**, validates transaction ID, response framing and echoed question, then reports only bounded `responded` / `timeout` / `unverified` states and numeric DNS RCODEs. It does not print the resolver address, transmit credentials or user hostnames, discover endpoints, change DNS/network configuration, or trust a response merely because a port is open. Only canonical numeric IPv4 addresses within RFC1918 or CGNAT `100.64.0.0/10` are accepted; public, wildcard and loopback endpoints are rejected by default. `--allow-loopback-lab` permits loopback in a controlled disposable test setting only.
+
+A valid wire response means **that single question traversed the tested UDP or TCP path**. It does not verify blocking rules, client identity, DNSSEC trust, upstream correctness, DoH/DoT/DoQ, high availability, all device profiles, or safe production cutover. CI uses synthetic local sockets rather than any private or public resolver.
