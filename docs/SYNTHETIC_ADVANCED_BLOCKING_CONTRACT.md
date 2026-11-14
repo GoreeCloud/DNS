@@ -25,9 +25,12 @@ The validator returns a JSON status containing `app_runtime_tested:false`, `prod
 
 ## What this does NOT establish
 
-Even successful CI proves only that the **static fixture** meets a narrow policy contract. It does not install or run `AdvancedBlockingApp`, exercise network-group matching with actual DNS packets, independently verify app dependency or license risk, test filter list refresh, authenticate clients on encrypted transports, validate rule priority, or reproduce AdGuard client settings.
+Hosted CI verifies the **static fixture** and independently **compiles the existing Advanced Blocking App source** against the repository's pinned dependency build. The compile step does not install, enable, or run `AdvancedBlockingApp`; it does not exercise network-group matching with actual DNS packets, fully audit app dependencies or license risks, test filter-list refresh, authenticate clients on encrypted transports, validate rule priority, or reproduce AdGuard client settings.
 
 It especially does **not** establish safe-browsing or parental-protection equivalence. A client's filtering switch is not a replacement for the other protections. Nor can aggregate source counts establish which protection settings belong to which private client identity. The app's `allowed` and `blocked` lists are not a proven implementation of AdGuard's `$important` precedence. A privacy-controlled, independently reviewed runtime parity protocol would be required before any real client DNS cutover.
+
+
+**Hosted verification:** [GitHub Actions run 43537823750](https://github.com/GoreeCloud/DNS/actions/runs/43537823750) passed its source-contract and pinned .NET build jobs. Its new `Compile Advanced Blocking App source (no install or runtime)` step completed successfully. These results apply to draft branch commit `31f38efa56d869fb6873c09bcf1d620be856d287`, not to a deployed application.
 
 **Application availability:** The cached development DNS image was previously checked for an Advanced Blocking assembly in common application directories, without a verified hit. Its actual installation/running status remains **unverified**, not assumed available.
 
