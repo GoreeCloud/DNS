@@ -12,6 +12,16 @@ The Advanced Blocking App extends the DNS server's blocking capabilities by allo
 - Set up allow lists to whitelist specific domains
 - Map clients to groups using network addresses or DNS endpoint identifiers
 
+## GoreeCloud privacy-by-default reporting (draft change)
+
+**GoreeCloud-specific change:** A missing `allowTxtBlockingReport` now defaults to `false` instead of the prior upstream `true`. This flag controls blocking diagnostics emitted in blocked-domain TXT replies and EDNS Extended DNS Error options. Those diagnostics can disclose a policy group or blocking-list source; default-on reporting conflicts with GoreeShield's privacy-minimization goals.
+
+All three bundled sample groups now explicitly disable these reports. Existing configurations explicitly set to `true` **remain opted in** and are not automatically rewritten. Operators can intentionally enable reporting for a narrowly scoped, authorized diagnostic session and disable it afterward.
+
+**External filter subscriptions are also opt-in in the bundled example.** The example no longer contains remote `blockListUrls`; each sample group starts with that list empty. Add only reviewed, owner-approved provider URLs when the intended data-sharing and update behavior is understood. The app's existing support for explicit subscriptions is unchanged, and an existing configuration containing URLs is **not automatically migrated or cleared**. This change avoids outbound third-party list requests merely from installing the example; it does not imply the resolver itself has no other network access.
+
+**Rollout boundary:** This is an unmerged development proposal, not production policy enforcement. It does not establish query-log retention, encrypted-DNS client identity, authoritative-zone handling, DNSSEC validity, Wardveil packet protection, GoreeCloud Mesh integration, or AdGuard compatibility.
+
 ## ⚠️ Important Warning:  Overlap with Default Blocking
 
 > **When this app is installed and enabled, it operates independently from the DNS server's built-in blocking feature.**
@@ -82,7 +92,7 @@ Each group defines its own blocking policy:
 | --- | --- | --- | --- |
 | `name` | string | *required* | Unique group identifier |
 | `enableBlocking` | boolean | `true` | Enable blocking for this group |
-| `allowTxtBlockingReport` | boolean | `true` | Return blocking metadata in TXT queries and EDNS Extended DNS Error |
+| `allowTxtBlockingReport` | boolean | `false` (GoreeCloud default) | Opt-in: include blocking metadata in TXT answers and EDNS Extended DNS Error |
 | `blockAsNxDomain` | boolean | `false` | Return NXDOMAIN instead of custom IP for blocked domains |
 | `blockingAddresses` | array | `[]` | IP addresses to return for blocked A/AAAA queries |
 | `allowed` | array | `[]` | Domains explicitly allowed (whitelist) |
@@ -139,7 +149,7 @@ Block list URLs can be specified as simple strings or as objects with additional
     {
       "name": "everyone",
       "enableBlocking": true,
-      "allowTxtBlockingReport":  true,
+      "allowTxtBlockingReport": false,
       "blockAsNxDomain": true,
       "blockingAddresses": ["0.0.0.0", "::"],
       "allowed": [],
@@ -157,7 +167,7 @@ Block list URLs can be specified as simple strings or as objects with additional
     {
       "name":  "kids",
       "enableBlocking":  true,
-      "allowTxtBlockingReport": true,
+      "allowTxtBlockingReport": false,
       "blockAsNxDomain": false,
       "blockingAddresses": ["0.0.0.0", "::"],
       "allowed":  [],
@@ -179,7 +189,7 @@ Block list URLs can be specified as simple strings or as objects with additional
     {
       "name": "bypass",
       "enableBlocking": false,
-      "allowTxtBlockingReport": true,
+      "allowTxtBlockingReport": false,
       "blockAsNxDomain": true,
       "blockingAddresses": ["0.0.0.0", "::"],
       "allowed":  [],
