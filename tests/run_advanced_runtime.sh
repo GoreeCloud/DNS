@@ -14,15 +14,24 @@ umask 077
 mkdir /work/config /work/.dotnet
 cp /lab/output/AdvancedBlocking-v2.zip /work/AdvancedBlocking.zip
 cp /lab/tests/smoke_advanced_runtime.pl /work/smoke_advanced_runtime.pl
+cp /lab/tests/synthetic_offline_dns_upstream.pl /work/synthetic_offline_dns_upstream.pl
 od -An -N24 -tx1 /dev/urandom|tr -d '[:space:]' > /work/admin-password
 [ "$(wc -c < /work/admin-password)" -eq 48 ] || { echo "FAIL: password generation";exit 1; }
 export HOME=/work DOTNET_CLI_HOME=/work/.dotnet
 export DNS_SERVER_ADMIN_PASSWORD_FILE=/work/admin-password
 export DNS_SERVER_WEB_SERVICE_LOCAL_ADDRESSES=127.0.0.1 DNS_SERVER_WEB_SERVICE_HTTP_PORT=5380
 export DNS_SERVER_RECURSION=Deny
+perl /work/synthetic_offline_dns_upstream.pl > /work/offline-upstream.log 2>&1 &
+upstream_pid=$!
+n=0
+until dig +tries=1 +time=1 +short @127.0.0.4 -p 5301 policy-block-1.example A 2>/dev/null |grep -Fxq 192.0.2.53;do
+ n=$((n+1));[ "$n" -lt 25 ] || { echo "FAIL: loopback-only synthetic upstream unavailable";exit 1; }
+ sleep 0.2
+done
+echo "PASS: synthetic loopback-only upstream ready"
 dotnet /opt/technitium/dns/DnsServerApp.dll --stop-if-bind-fails --portable-app /work/config >/work/service.log 2>&1 &
 pid=$!
-trap 'kill "$pid" 2>/dev/null || true;wait "$pid" 2>/dev/null || true' EXIT
+trap 'kill "$pid" "$upstream_pid" 2>/dev/null || true;wait "$pid" "$upstream_pid" 2>/dev/null || true' EXIT
 n=0
 until curl --silent --fail --noproxy '*' --max-time 1 --output /work/console.html http://127.0.0.1:5380/;do
  n=$((n+1));[ "$n" -lt 40 ] || { echo "FAIL: isolated DNS did not start";exit 1; }
@@ -35,6 +44,7 @@ perl /work/smoke_advanced_runtime.pl
 rc=$?
 set -e
 if [ "$rc" -ne 0 ]; then
+ echo "DIAGNOSTIC: synthetic_upstream_valid_query_count=$(grep -c '^SYNTHETIC_A_QUERY$' /work/offline-upstream.log || true)"
  echo "DIAGNOSTIC: plugin_load_error_types_only"
  grep -oE '[A-Za-z0-9_.]+(Exception|Error)' /work/service.log 2>/dev/null |sort |uniq -c|head -n 12 || true
  echo "FAIL: isolated Advanced Blocking runtime test nonzero"
