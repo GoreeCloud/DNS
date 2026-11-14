@@ -61,6 +61,8 @@ jobs:
           dotnet build ../TechnitiumLibrary/TechnitiumLibrary.Security.OTP/TechnitiumLibrary.Security.OTP.csproj -c Release --nologo --verbosity quiet
       - name: Build GoreeCloud DNS application
         run: dotnet build DnsServerApp/DnsServerApp.csproj -c Release --nologo --verbosity quiet
+      - name: Compile Advanced Blocking App opt-in default (no runtime or install)
+        run: dotnet build Apps/AdvancedBlockingApp/AdvancedBlockingApp.csproj -c Release --nologo --verbosity quiet
       - name: Build and self-test source-owned offline DoQ wire probe
         run: |
           dotnet build tests/DoQProbe/DoQProbe.csproj -c Release --nologo --verbosity quiet
