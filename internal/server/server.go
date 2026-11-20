@@ -227,6 +227,12 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		return
 	}
 	query := request.Question[0]
+	if request.Opcode != dns.OpcodeQuery || query.Qclass != dns.ClassINET {
+		reply := new(dns.Msg)
+		reply.SetRcode(request, dns.RcodeNotImplemented)
+		_ = w.WriteMsg(reply)
+		return
+	}
 	if s.rules.Load().Matches(query.Name) {
 		s.blocked.Add(1)
 		reply := new(dns.Msg)
@@ -274,12 +280,16 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
 	client := &dns.Client{Net: network, Timeout: 3 * time.Second, TLSConfig: s.tlsConfig}
-	answer, _, err := client.ExchangeContext(ctx, request, s.config.Upstream)
+	// Preserve the question and DNSSEC DO bit, but never pass opaque client
+	// additionals, TSIG material or EDNS options (including ECS and Cookie)
+	// to an upstream resolver. No client/subnet history is retained.
+	upstreamRequest := privacyMinimizedRequest(request)
+	answer, _, err := client.ExchangeContext(ctx, upstreamRequest, s.config.Upstream)
 	if err == nil && answer != nil && answer.Truncated && network == "udp" {
 		client.Net = "tcp"
-		answer, _, err = client.ExchangeContext(ctx, request, s.config.Upstream)
+		answer, _, err = client.ExchangeContext(ctx, upstreamRequest, s.config.Upstream)
 	}
-	if err != nil || answer == nil || answer.Id != request.Id {
+	if err != nil || !validUpstreamAnswer(request, answer) {
 		s.upstreamErrors.Add(1)
 		reply := new(dns.Msg)
 		reply.SetRcode(request, dns.RcodeServerFailure)
@@ -288,6 +298,42 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		return
 	}
 	_ = w.WriteMsg(answer)
+}
+
+// privacyMinimizedRequest creates a fresh wire question without client-side
+// EDNS metadata, subnet data, cookies, unsigned arbitrary additions, or TSIG.
+// Only UDP size and DNSSEC DO preference survive when EDNS0 is present.
+func privacyMinimizedRequest(request *dns.Msg) *dns.Msg {
+	clean := request.Copy()
+	clean.Answer = nil
+	clean.Ns = nil
+	clean.Extra = nil
+	if opt := request.IsEdns0(); opt != nil {
+		size := opt.UDPSize()
+		if size < 512 {
+			size = 512
+		}
+		if size > 1232 {
+			size = 1232 // favor fragmentation-resistant UDP; retry over TCP
+		}
+		clean.SetEdns0(size, opt.Do())
+	}
+	return clean
+}
+
+// validUpstreamAnswer rejects forged, malformed or unrelated replies even
+// when they happen to reuse the query's 16-bit transaction identifier.
+func validUpstreamAnswer(request, answer *dns.Msg) bool {
+	if answer == nil || !answer.Response || answer.Truncated ||
+		answer.Id != request.Id || answer.Opcode != request.Opcode ||
+		len(answer.Question) != 1 || len(request.Question) != 1 {
+		return false
+	}
+	question := request.Question[0]
+	returned := answer.Question[0]
+	return returned.Qtype == question.Qtype &&
+		returned.Qclass == question.Qclass &&
+		strings.EqualFold(dns.Fqdn(returned.Name), dns.Fqdn(question.Name))
 }
 
 func (s *Server) apiAuth(next http.HandlerFunc) http.HandlerFunc {
