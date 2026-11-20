@@ -9,6 +9,9 @@ type Status = {
   queries: number;
   blocked: number;
   upstream_errors: number;
+  overloaded: number;
+  exceptions: number;
+  upstream_mode: string;
   rules: number;
 };
 
@@ -18,11 +21,14 @@ function Console() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [domain, setDomain] = useState('');
+  const [decision, setDecision] = useState<{name: string; decision: 'allowed' | 'blocked' | 'unmatched'} | null>(null);
 
-  async function api(path: string, method: 'GET' | 'POST' = 'GET') {
+  async function api(path: string, method: 'GET' | 'POST' = 'GET', payload?: object) {
     const response = await fetch(path, {
       method,
-      headers: { Authorization: 'Bearer ' + token },
+      headers: { Authorization: 'Bearer ' + token, ...(payload ? { 'Content-Type': 'application/json' } : {}) },
+      ...(payload ? { body: JSON.stringify(payload) } : {}),
       cache: 'no-store',
       credentials: 'omit',
       referrerPolicy: 'no-referrer'
@@ -51,6 +57,16 @@ function Console() {
       setStatus(await api('/api/v1/status'));
       setMessage('Loaded ' + result.rules + ' rules from the server configuration.');
     } catch (e) { setError(e instanceof Error ? e.message : 'Reload failed'); }
+    finally { setBusy(false); }
+  }
+
+  async function checkDomain() {
+    setBusy(true);
+    setError('');
+    setDecision(null);
+    try {
+      setDecision(await api('/api/v1/policy/check', 'POST', { name: domain.trim() }));
+    } catch (e) { setError(e instanceof Error ? e.message : 'Policy check failed'); }
     finally { setBusy(false); }
   }
 
@@ -83,12 +99,26 @@ function Console() {
           <article className="metric"><span>Blocked queries</span><strong>{status.blocked.toLocaleString()}</strong><small>Policy decisions</small></article>
           <article className="metric"><span>Upstream errors</span><strong>{status.upstream_errors.toLocaleString()}</strong><small>Resolver failures</small></article>
           <article className="metric"><span>Active rules</span><strong>{status.rules.toLocaleString()}</strong><small>Domain suffix policies</small></article>
+          <article className="metric"><span>Allow exceptions</span><strong>{status.exceptions.toLocaleString()}</strong><small>Override matching blocks</small></article>
+          <article className="metric"><span>Overload refusals</span><strong>{status.overloaded.toLocaleString()}</strong><small>Upstream capacity protection</small></article>
         </section>
         <section className="panel action-panel">
           <div><h2>Policy management</h2><p>Edit the rules file on your DNS host and reload it atomically. Invalid updates preserve the existing rules.</p></div>
           <button type="button" className="secondary" onClick={() => void reload()} disabled={busy}>Reload rules</button>
         </section>
-        <button className="disconnect" type="button" onClick={() => {setToken(''); setStatus(null); setError(''); setMessage('');}}>Disconnect and forget token</button>
+        <section className="panel policy-check" aria-label="Private domain policy check">
+          <div><h2>Test a domain against policy</h2><p>Preview a local allow/block decision without sending a DNS query or saving a history. DNS may still fail upstream when no rule matches.</p></div>
+          <form onSubmit={event => {event.preventDefault(); void checkDomain();}}>
+            <label htmlFor="domain">Domain to check</label>
+            <div className="input-row">
+              <input id="domain" type="text" value={domain} maxLength={253} autoComplete="off" spellCheck={false} placeholder="example.org" onChange={event => {setDomain(event.target.value); setDecision(null);}} required />
+              <button type="submit" disabled={busy || !domain.trim()}>Check policy</button>
+            </div>
+          </form>
+          {decision && <p role="status" className="policy-result"><strong>{decision.name}</strong>: {decision.decision === 'blocked' ? 'blocked by local policy' : decision.decision === 'allowed' ? 'explicitly allowed by exception' : 'no local rule matched (forward upstream)'}</p>}
+        </section>
+        <p className="transport-note">Upstream transport: {status.upstream_mode === 'tls' ? 'DNS-over-TLS' : status.upstream_mode === 'tcp' ? 'DNS over TCP' : 'Client-appropriate UDP/TCP'}</p>
+        <button className="disconnect" type="button" onClick={() => {setToken(''); setStatus(null); setDomain(''); setDecision(null); setError(''); setMessage('');}}>Disconnect and forget token</button>
       </> : <section className="empty"><h2>Ready when you are</h2><p>Connect locally or through a trusted HTTPS reverse proxy to see live aggregate metrics. Query histories and client IP addresses are not retained.</p></section>}
       <footer>GoreeCloud DNS · Self-hosted development software · No tracking or third-party analytics</footer>
     </main>
