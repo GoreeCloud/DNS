@@ -23,7 +23,7 @@ const localTTL = 60
 // overrides. It is not a general-purpose authoritative DNS zone database.
 type Store struct {
 	byName map[string]map[uint16][]dns.RR
-	count int
+	count  int
 }
 
 func Empty() *Store { return &Store{byName: make(map[string]map[uint16][]dns.RR)} }
@@ -56,9 +56,10 @@ func (s *Store) Lookup(question dns.Question) ([]dns.RR, bool) {
 }
 
 // Parse supports only the bounded, local-only record forms:
-//   A     host.example    192.0.2.42
-//   AAAA  host.example    2001:db8::42
-//   CNAME alias.example   host.example
+//
+//	A     host.example    192.0.2.42
+//	AAAA  host.example    2001:db8::42
+//	CNAME alias.example   host.example
 //
 // Source names are exact matches, unlike suffix-based filter policy.
 func Parse(reader io.Reader) (*Store, error) {
@@ -100,7 +101,7 @@ func Parse(reader io.Reader) (*Store, error) {
 		switch recordType {
 		case "A":
 			ip, err := netip.ParseAddr(fields[2])
-			if err != nil || !ip.Is4() {
+			if err != nil || !ip.Is4() || ip.Zone() != "" {
 				return nil, fmt.Errorf("local record line %d: invalid IPv4 address", lineNumber)
 			}
 			kind = dns.TypeA
@@ -109,7 +110,7 @@ func Parse(reader io.Reader) (*Store, error) {
 			rr = &dns.A{Hdr: header, A: net.IP(ip.AsSlice())}
 		case "AAAA":
 			ip, err := netip.ParseAddr(fields[2])
-			if err != nil || !ip.Is6() || ip.Is4In6() {
+			if err != nil || !ip.Is6() || ip.Is4In6() || ip.Zone() != "" {
 				return nil, fmt.Errorf("local record line %d: invalid IPv6 address", lineNumber)
 			}
 			kind = dns.TypeAAAA
@@ -153,7 +154,43 @@ func Parse(reader io.Reader) (*Store, error) {
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("local record line %d: %w", lineNumber+1, err)
 	}
+	if err := s.validateAliasCycles(); err != nil {
+		return nil, err
+	}
 	return s, nil
+}
+
+// validateAliasCycles detects CNAME cycles in linear time, even across
+// records defined out of order. Cyclic aliases are rejected during file load,
+// so the previous atomic ruleset remains active.
+func (s *Store) validateAliasCycles() error {
+	states := make(map[string]uint8, len(s.byName))
+	for owner := range s.byName {
+		if states[owner] != 0 {
+			continue
+		}
+		path := make([]string, 0, 8)
+		name := owner
+		for {
+			if states[name] == 1 {
+				return fmt.Errorf("local CNAME cycle involving %s", name)
+			}
+			if states[name] == 2 {
+				break
+			}
+			types := s.byName[name]
+			if types == nil || len(types[dns.TypeCNAME]) == 0 {
+				break
+			}
+			states[name] = 1
+			path = append(path, name)
+			name = strings.ToLower(types[dns.TypeCNAME][0].(*dns.CNAME).Target)
+		}
+		for _, visited := range path {
+			states[visited] = 2
+		}
+	}
+	return nil
 }
 
 func Load(path string) (*Store, error) {

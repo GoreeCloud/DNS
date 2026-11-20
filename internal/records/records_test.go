@@ -9,34 +9,43 @@ import (
 )
 
 func TestLocalRecords(t *testing.T) {
-	records,err:=Parse(strings.NewReader(
+	records, err := Parse(strings.NewReader(
 		"# local-only synthetic fixture\n" +
-		"A home.example 192.0.2.42\n" +
-		"AAAA home.example 2001:db8::42\n" +
-		"CNAME alias.example home.example\n" +
-		"A home.example 192.0.2.42 # duplicate\n"))
-	if err!=nil{t.Fatal(err)}
-	if records.Count()!=3 {t.Fatalf("count=%d",records.Count())}
-	for _,tt:=range []struct{name string;typ uint16;count int;matched bool}{
-		{"home.example.",dns.TypeA,1,true},
-		{"home.example.",dns.TypeAAAA,1,true},
-		{"home.example.",dns.TypeMX,0,true},
-		{"home.example.",dns.TypeANY,0,true},
-		{"alias.example.",dns.TypeA,1,true},
-		{"other.example.",dns.TypeA,0,false},
+			"A home.example 192.0.2.42\n" +
+			"AAAA home.example 2001:db8::42\n" +
+			"CNAME alias.example home.example\n" +
+			"A home.example 192.0.2.42 # duplicate\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if records.Count() != 3 {
+		t.Fatalf("count=%d", records.Count())
+	}
+	for _, tt := range []struct {
+		name    string
+		typ     uint16
+		count   int
+		matched bool
 	}{
-		answer,found:=records.Lookup(dns.Question{Name:tt.name,Qtype:tt.typ,Qclass:dns.ClassINET})
-		if found!=tt.matched || len(answer)!=tt.count {
-			t.Fatalf("lookup %s type %d: found=%v count=%d",tt.name,tt.typ,found,len(answer))
+		{"home.example.", dns.TypeA, 1, true},
+		{"home.example.", dns.TypeAAAA, 1, true},
+		{"home.example.", dns.TypeMX, 0, true},
+		{"home.example.", dns.TypeANY, 0, true},
+		{"alias.example.", dns.TypeA, 1, true},
+		{"other.example.", dns.TypeA, 0, false},
+	} {
+		answer, found := records.Lookup(dns.Question{Name: tt.name, Qtype: tt.typ, Qclass: dns.ClassINET})
+		if found != tt.matched || len(answer) != tt.count {
+			t.Fatalf("lookup %s type %d: found=%v count=%d", tt.name, tt.typ, found, len(answer))
 		}
 	}
-	if _,found:=records.Lookup(dns.Question{Name:"home.example.",Qtype:dns.TypeA,Qclass:dns.ClassCHAOS});found {
+	if _, found := records.Lookup(dns.Question{Name: "home.example.", Qtype: dns.TypeA, Qclass: dns.ClassCHAOS}); found {
 		t.Fatal("non-IN question incorrectly intercepted")
 	}
 }
 
 func TestRejectUnsafeLocalRecords(t *testing.T) {
-	for _,entry:=range []string{
+	for _, entry := range []string{
 		"TXT home.example hello",
 		"A home.example 2001:db8::1",
 		"AAAA home.example 192.0.2.42",
@@ -46,23 +55,45 @@ func TestRejectUnsafeLocalRecords(t *testing.T) {
 		"A home.example 192.0.2.1\nCNAME home.example other.example",
 		"CNAME alias.example other.example\nCNAME alias.example another.example",
 		"A home.example",
-	}{
-		if _,err:=Parse(strings.NewReader(entry));err==nil{
-			t.Fatalf("accepted invalid local records %q",entry)
+	} {
+		if _, err := Parse(strings.NewReader(entry)); err == nil {
+			t.Fatalf("accepted invalid local records %q", entry)
 		}
 	}
-	if _,err:=Parse(bytes.NewReader(bytes.Repeat([]byte('#'),MaxFileBytes+1)));err==nil {
+	if _, err := Parse(bytes.NewReader(bytes.Repeat([]byte{'#'}, MaxFileBytes+1))); err == nil {
 		t.Fatal("oversized override file accepted")
 	}
 }
 
-func FuzzLocalRecords(f *testing.F){
+func TestRejectAliasCycles(t *testing.T) {
+	for _, entry := range []string{
+		"CNAME home.example home.example\n",
+		"CNAME first.example second.example\nCNAME second.example first.example\n",
+		"CNAME first.example second.example\nCNAME second.example third.example\nCNAME third.example first.example\n",
+	} {
+		if _, err := Parse(strings.NewReader(entry)); err == nil {
+			t.Fatalf("accepted cyclic alias: %q", entry)
+		}
+	}
+	if _, err := Parse(strings.NewReader(
+		"CNAME alias.example intermediate.example\nCNAME intermediate.example target.example\n" +
+			"A target.example 192.0.2.42\n",
+	)); err != nil {
+		t.Fatalf("safe finite alias chain rejected: %v", err)
+	}
+}
+
+func FuzzLocalRecords(f *testing.F) {
 	f.Add([]byte("A home.example 192.0.2.1\n"))
 	f.Add([]byte("CNAME alias.example home.example\n"))
 	f.Add([]byte("bad input"))
-	f.Fuzz(func(t *testing.T, data []byte){
-		if len(data)>128<<10{t.Skip()}
-		r,err:=Parse(bytes.NewReader(data))
-		if err==nil && r.Count()>maxEntries{t.Fatal("record count exceeded")}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		if len(data) > 128<<10 {
+			t.Skip()
+		}
+		r, err := Parse(bytes.NewReader(data))
+		if err == nil && r.Count() > maxEntries {
+			t.Fatal("record count exceeded")
+		}
 	})
 }
