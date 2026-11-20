@@ -15,8 +15,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25.x'
-      - name: Resolve exact module dependency graph
-        run: go mod tidy
+      - name: Verify dependency graph and checksums
+        run: |
+          go mod tidy
+          go mod verify
+          git diff --exit-code -- go.mod go.sum
       - name: Test resolver
         run: go test -race ./...
       - name: Static vet
@@ -34,8 +37,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install web dependencies
-        run: npm install --no-audit --no-fund
+      - name: Install locked web dependencies
+        run: npm ci --no-audit --no-fund
       - name: Typecheck and build
         run: npm run build
   android:
