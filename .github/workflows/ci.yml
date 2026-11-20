@@ -104,3 +104,36 @@ jobs:
         env:
           DNS_API_TOKEN: synthetic-ci-token-not-for-deployment
         run: docker compose down --volumes --remove-orphans
+
+  linux:
+    name: Native Qt Quick Linux build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install audited installer tool into isolated environment
+        run: |
+          python3 -m venv "$RUNNER_TEMP/aqt-venv"
+          "$RUNNER_TEMP/aqt-venv/bin/pip" install --no-cache-dir "aqtinstall==3.3.0"
+      - name: Install exact open-source Qt 6.12.0 build dependencies
+        run: |
+          "$RUNNER_TEMP/aqt-venv/bin/aqt" install-qt linux desktop 6.12.0 linux_gcc_64 \
+            --outputdir "$RUNNER_TEMP/Qt"
+      - name: Build native Linux application
+        run: |
+          cmake -S linux -B "$RUNNER_TEMP/gc-dns-qt-build" \
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/Qt/6.12.0/gcc_64" \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$RUNNER_TEMP/gc-dns-qt-build" --parallel 2
+      - name: Check native launch without a display
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QSG_RHI_BACKEND: software
+        run: |
+          set +e
+          timeout 6s "$RUNNER_TEMP/gc-dns-qt-build/goreecloud-dns-linux" >"$RUNNER_TEMP/qt-launch.log" 2>&1
+          result=$?
+          cat "$RUNNER_TEMP/qt-launch.log"
+          if [ "$result" -ne 124 ]; then
+            echo "Unexpected native-client exit status $result"
+            exit 1
+          fi
