@@ -100,3 +100,12 @@ The Go image build uses a source allowlist and copies only compilation inputs. I
 A token-bucket query budget now caps the total number of DNS packets processed by a gateway instance. DNS_RATE_QPS defaults to 500 accepted queries per second, with DNS_RATE_BURST=1000 allowing short spikes. The permitted ranges are 1 to 20,000 requests per second and 1 to 50,000 burst tokens. Invalid negative or over-limit values stop startup; zero values resolve to the defaults. The budget runs after the client CIDR ACL but before policy matching and upstream forwarding. Exhausted capacity returns DNS REFUSED without contacting the upstream resolver and increments an aggregate rate_limited counter. The counter is visible in the authenticated API and web/Linux/Android clients.
 
 This is a global limit only: the implementation does not keep per-client IP identifiers, query histories or rolling personal profiles. A single abusive LAN client can still consume the shared budget, so proper router/firewall controls and per-source throttling require a separate privacy review. The mechanism is not a comprehensive amplification or DoS defense and is not a production capacity guarantee.
+
+
+## DNS wire protocol and client metadata minimization (development)
+
+Upstream recursive requests now remove all client-supplied DNS additional records and EDNS options, including EDNS Client Subnet and client cookies, before forwarding. The gateway keeps only EDNS UDP payload-size (capped at 1232 bytes) and DNSSEC DO preference when a client supplied EDNS0; the original client message remains unchanged. This reduces accidental leakage of client subnet and opaque identifiers, but it does not hide the DNS question, the gateway egress IP, or upstream timing from the chosen resolver.
+
+Upstream responses must be DNS replies to exactly the original question, matching query ID, opcode, case-insensitive name, type and class. Invalid or still-truncated upstream responses are rejected as SERVFAIL and counted as upstream errors. UDP truncation triggers a TCP retry on the same configured upstream, where supported. Incoming DNS UPDATE and non-IN class questions receive NOTIMP instead of being forwarded.
+
+The isolated tests cover synthetic EDNS Client Subnet/Cookie stripping, DNSSEC DO pass-through, UDP truncation plus TCP retry, unrelated response rejection, and non-query opcode handling. Do not interpret these tests as production DNSSEC validation, a complete RFC compliance test suite, client anonymity, or a production-grade authoritative DNS service.

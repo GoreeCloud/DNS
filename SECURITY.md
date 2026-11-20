@@ -23,3 +23,8 @@ The Docker build context has an explicit source-code allowlist. Only Go compilat
 ## Aggregate query-rate protection
 
 The daemon now uses a bounded global token bucket (default 500 queries per second and burst 1000). After CIDR access checks, excess packets receive REFUSED. This protects upstream capacity without storing per-IP state or query history. Global throttling does not prevent one allowed host from starving other LAN clients; production rollouts require independently validated firewall and abuse controls.
+
+
+## DNS wire validation and privacy
+
+Outbound recursive traffic now strips client-provided EDNS options (including ECS and DNS Cookies), unsigned additional records, and TSIG before forwarding, while retaining only the EDNS UDP-size (up to 1232 bytes) and DNSSEC DO parameters. This does not prevent a chosen upstream from observing the original requested name or the gateway's egress address. Operators must evaluate their upstream resolver's privacy and transport configuration under GoreeShield policies. Upstream DNS response correlation validates the original question and rejects malformed/mismatched replies rather than forwarding them to clients. Only standard IN-class queries are processed, and UDP truncation is retried using TCP. DNSSEC cryptographic validation remains delegated to a separately operated resolver.
