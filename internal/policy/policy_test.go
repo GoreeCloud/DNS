@@ -52,7 +52,9 @@ func TestPolicyTooLargeRejected(t *testing.T) {
 
 func TestLimitAndDuplicateSemantics(t *testing.T) {
 	r, err := Parse(strings.NewReader("foo.example\nfoo.example\n@@||foo.example^\n"))
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	if r.Count() != 2 || r.Decide("foo.example.") != Allowed {
 		t.Fatalf("unexpected duplicate semantics: rules=%d decision=%s", r.Count(), r.Decide("foo.example."))
 	}
@@ -63,7 +65,9 @@ func FuzzParse(f *testing.F) {
 		f.Add([]byte(seed))
 	}
 	f.Fuzz(func(t *testing.T, raw []byte) {
-		if len(raw) > 128<<10 { t.Skip() }
+		if len(raw) > 128<<10 {
+			t.Skip()
+		}
 		rules, err := Parse(bytes.NewReader(raw))
 		if err == nil && rules.Count() > maxRules {
 			t.Fatal("unbounded rules accepted")

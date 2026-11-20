@@ -23,16 +23,16 @@ import (
 )
 
 type Config struct {
-	DNSListen           string
-	APIListen           string
-	Upstream            string
-	UpstreamMode        string // auto (client transport), tcp, or tls
-	UpstreamTLSName     string // TLS certificate identity; required for tls mode
-	UpstreamTLSCAFile   string // optional custom PEM CA file for tls mode
-	APIToken            string
-	RulesFile           string
-	MaxConcurrent       int // defaults to 128, bounds simultaneous upstream queries
-	AllowedCIDRs        string // explicit DNS client CIDRs; loopback-only by default
+	DNSListen         string
+	APIListen         string
+	Upstream          string
+	UpstreamMode      string // auto (client transport), tcp, or tls
+	UpstreamTLSName   string // TLS certificate identity; required for tls mode
+	UpstreamTLSCAFile string // optional custom PEM CA file for tls mode
+	APIToken          string
+	RulesFile         string
+	MaxConcurrent     int    // defaults to 128, bounds simultaneous upstream queries
+	AllowedCIDRs      string // explicit DNS client CIDRs; loopback-only by default
 }
 
 type Server struct {
@@ -53,8 +53,8 @@ func New(config Config) (*Server, error) {
 		return nil, errors.New("DNS_API_TOKEN must contain at least 16 characters")
 	}
 	for name, value := range map[string]string{
-		"DNS_LISTEN_ADDR": config.DNSListen,
-		"DNS_API_ADDR": config.APIListen,
+		"DNS_LISTEN_ADDR":   config.DNSListen,
+		"DNS_API_ADDR":      config.APIListen,
 		"DNS_UPSTREAM_ADDR": config.Upstream,
 	} {
 		_, port, err := net.SplitHostPort(value)
@@ -120,7 +120,6 @@ func New(config Config) (*Server, error) {
 	s.rules.Store(rules)
 	return s, nil
 }
-
 
 // parseAllowedCIDRs accepts a bounded list of explicit prefixes. Empty input
 // intentionally means localhost only. An unrestricted /0 prefix is rejected
@@ -269,16 +268,16 @@ func (s *Server) APIHandler() http.Handler {
 	mux.HandleFunc("GET /api/v1/status", s.apiAuth(func(w http.ResponseWriter, _ *http.Request) {
 		rules := s.rules.Load()
 		s.writeJSON(w, http.StatusOK, map[string]any{
-			"product": "GoreeCloud DNS",
-			"state": "running",
-			"queries": s.queries.Load(),
-			"blocked": s.blocked.Load(),
+			"product":         "GoreeCloud DNS",
+			"state":           "running",
+			"queries":         s.queries.Load(),
+			"blocked":         s.blocked.Load(),
 			"upstream_errors": s.upstreamErrors.Load(),
-			"overloaded": s.overloaded.Load(),
-			"refused": s.refused.Load(),
-			"rules": rules.Count(),
-			"exceptions": rules.AllowCount(),
-			"upstream_mode": s.config.UpstreamMode,
+			"overloaded":      s.overloaded.Load(),
+			"refused":         s.refused.Load(),
+			"rules":           rules.Count(),
+			"exceptions":      rules.AllowCount(),
+			"upstream_mode":   s.config.UpstreamMode,
 		})
 	}))
 	mux.HandleFunc("POST /api/v1/rules/reload", s.apiAuth(func(w http.ResponseWriter, r *http.Request) {
@@ -302,7 +301,9 @@ func (s *Server) APIHandler() http.Handler {
 	// POST keeps private domain names out of URLs, browser history and
 	// ordinary reverse-proxy request-path logs. This endpoint logs nothing.
 	mux.HandleFunc("POST /api/v1/policy/check", s.apiAuth(func(w http.ResponseWriter, r *http.Request) {
-		var input struct { Name string `json:"name"` }
+		var input struct {
+			Name string `json:"name"`
+		}
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
 		decoder.DisallowUnknownFields()
 		if err := decoder.Decode(&input); err != nil {
