@@ -14,9 +14,9 @@ import (
 	"github.com/miekg/dns"
 )
 
-type writer struct { answer *dns.Msg }
-func (w *writer) LocalAddr() net.Addr { return &net.UDPAddr{} }
-func (w *writer) RemoteAddr() net.Addr { return &net.UDPAddr{} }
+type writer struct { answer *dns.Msg; remote net.Addr }
+func (w *writer) LocalAddr() net.Addr { return &net.UDPAddr{IP:net.ParseIP("127.0.0.1")} }
+func (w *writer) RemoteAddr() net.Addr { if w.remote != nil { return w.remote }; return &net.UDPAddr{IP:net.ParseIP("127.0.0.1"),Port:12345} }
 func (w *writer) WriteMsg(m *dns.Msg) error { w.answer = m; return nil }
 func (w *writer) Write(_ []byte) (int,error) { return 0,nil }
 func (w *writer) Close() error { return nil }
@@ -140,5 +140,54 @@ func TestConfigurationValidation(t *testing.T) {
 			tt.mutate(&cfg)
 			if _,err:=New(cfg);err==nil {t.Fatal("invalid configuration accepted")}
 		})
+	}
+}
+
+
+func TestDNSClientAllowlist(t *testing.T) {
+	cfg,_:=testConfig(t)
+	cfg.AllowedCIDRs="127.0.0.0/8,192.168.50.0/24"
+	s,err:=New(cfg)
+	if err!=nil{t.Fatal(err)}
+	q:=new(dns.Msg)
+	q.SetQuestion("blocked.test.",dns.TypeA)
+	for _,tc:=range []struct{address string; allowed bool}{
+		{"127.0.0.1",true},
+		{"192.168.50.9",true},
+		{"192.168.51.9",false},
+		{"203.0.113.9",false},
+	} {
+		w:=&writer{remote:&net.UDPAddr{IP:net.ParseIP(tc.address),Port:55444}}
+		s.ServeDNS(w,q)
+		if w.answer==nil {t.Fatalf("no response for %s",tc.address)}
+		expected:=dns.RcodeRefused
+		if tc.allowed {expected=dns.RcodeNameError}
+		if w.answer.Rcode!=expected {t.Fatalf("client %s returned %s",tc.address,dns.RcodeToString[w.answer.Rcode])}
+	}
+	if s.blocked.Load()!=2 || s.refused.Load()!=2 {
+		t.Fatalf("counters incorrect: blocked=%d refused=%d",s.blocked.Load(),s.refused.Load())
+	}
+}
+
+func TestDNSAllowlistConfiguration(t *testing.T) {
+	base,_:=testConfig(t)
+	for _,value:=range []string{"0.0.0.0/0","::/0","bad-cidr","127.0.0.0/33",",127.0.0.0/8","::ffff:127.0.0.1/128"} {
+		cfg:=base
+		cfg.AllowedCIDRs=value
+		if _,err:=New(cfg);err==nil{t.Fatalf("accepted invalid allowlist %q",value)}
+	}
+	for _,value:=range []string{"127.0.0.0/8","::1/128","10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"} {
+		cfg:=base
+		cfg.AllowedCIDRs=value
+		if _,err:=New(cfg);err!=nil{t.Fatalf("rejected %q: %v",value,err)}
+	}
+}
+
+func TestDefaultDNSAllowlistIsLoopback(t *testing.T) {
+	s,_:=testServer(t)
+	if !s.accepts(&net.UDPAddr{IP:net.ParseIP("127.0.0.1")}) ||
+		!s.accepts(&net.TCPAddr{IP:net.ParseIP("::1")}) ||
+		s.accepts(&net.UDPAddr{IP:net.ParseIP("192.168.0.2")}) {
+		t.Fatal("DNS listener did not default to loopback-only allowlist")
 	}
 }

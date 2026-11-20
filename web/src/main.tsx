@@ -10,6 +10,7 @@ type Status = {
   blocked: number;
   upstream_errors: number;
   overloaded: number;
+  refused: number;
   exceptions: number;
   upstream_mode: string;
   rules: number;
@@ -101,6 +102,7 @@ function Console() {
           <article className="metric"><span>Active rules</span><strong>{status.rules.toLocaleString()}</strong><small>Domain suffix policies</small></article>
           <article className="metric"><span>Allow exceptions</span><strong>{status.exceptions.toLocaleString()}</strong><small>Override matching blocks</small></article>
           <article className="metric"><span>Overload refusals</span><strong>{status.overloaded.toLocaleString()}</strong><small>Upstream capacity protection</small></article>
+          <article className="metric"><span>Clients refused</span><strong>{status.refused.toLocaleString()}</strong><small>Outside configured network ACL</small></article>
         </section>
         <section className="panel action-panel">
           <div><h2>Policy management</h2><p>Edit the rules file on your DNS host and reload it atomically. Invalid updates preserve the existing rules.</p></div>

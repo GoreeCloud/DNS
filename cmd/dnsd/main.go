@@ -31,6 +31,7 @@ func main() {
 		APIToken: os.Getenv("DNS_API_TOKEN"),
 		RulesFile: env("DNS_RULES_FILE", "config/rules.txt"),
 		MaxConcurrent: maxConcurrent,
+		AllowedCIDRs: env("DNS_ALLOWED_CIDRS", "127.0.0.0/8,::1/128"),
 	}
 	s, err := server.New(cfg)
 	if err != nil { log.Fatalf("invalid configuration: %v", err) }

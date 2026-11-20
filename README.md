@@ -52,7 +52,7 @@ Original GoreeCloud source is MIT-licensed (see LICENSE); third-party components
 
 ## Verification and limitations
 
-Suggested checks: go mod tidy, go test -race ./..., go vet ./..., go build ./cmd/dnsd, npm run build inside web, Android Gradle assembleDebug, and the Qt native Linux build. A CI workflow runs Go, web and Android checks, but until successful run evidence is available these are **unverified**. Linux device testing and DNS-wire isolated acceptance are pending.
+Suggested checks: go mod tidy, go test -race ./..., go vet ./..., go build ./cmd/dnsd, npm ci and npm run build inside web, Android Gradle assembleDebug, and the Qt native Linux build. The initial CI baseline has passed Go tests, React, Android debug assembly, native Qt Quick 6.12.0 compilation and headless launch, and a containerized loopback DNS-wire NXDOMAIN smoke. This is **development test evidence only**: actual Android installation, physical Linux device testing, broad DNS protocol security, recovery, and LAN cutover remain unverified.
 
 Read SECURITY.md, docs/architecture.md and docs/roadmap.md before using this project beyond localhost. Do not change LAN port 53, production DNS routing or firewall rules based on this preview.
 
@@ -68,3 +68,9 @@ Set `DNS_UPSTREAM_MODE=tls`, `DNS_UPSTREAM_ADDR=203.0.113.10:853` (replace the d
 These controls configure outbound encrypted queries only; **they do not protect the inbound DNS listener or management HTTP API**. Keep the API bound to localhost or behind trusted HTTPS. DNS-over-TLS does not itself eliminate upstream metadata or replace GoreeShield privacy controls. Verify resolver identity, reachable port, certificate validity and trusted network egress before activation.
 
 Rules files accept one blocked domain per line, hosts-file `0.0.0.0`/ `127.0.0.1`/ `::` entries, `||blocked.example^`, and `@@||allowed.blocked.example^`. Exceptions override matching blocks. The file limit is 16 MiB and 250,000 distinct rules, with at most 256 KiB per line. Unsupported syntax rejects the entire reload and retains the prior active policy. No remote blocklist fetching occurs.
+
+## Network client access control (development)
+
+The daemon refuses DNS queries unless the client IP belongs to `DNS_ALLOWED_CIDRS`. Without an explicit override, only `127.0.0.0/8` and `::1/128` are accepted—even if someone configures the listener to bind to all interfaces. For an isolated home network, explicitly configure only the actual local prefixes you intend to serve (for example `DNS_ALLOWED_CIDRS=127.0.0.0/8,192.168.50.0/24`). Invalid CIDRs and unrestricted `0.0.0.0/0` or `::/0` are rejected at startup. Unauthorized DNS clients receive REFUSED and increment a non-identifying aggregate counter. Client IPs are not stored or logged.
+
+The development Docker Compose topology explicitly permits RFC1918 bridge clients, while still publishing DNS and the admin API on **host loopback only**. The bundled Unbound recursive backend also refuses non-private-network clients. These are defense-in-depth development controls, not a substitute for firewall rules, rate limits, safe authoritative configuration or a tested public resolver deployment. Do **not** expose port 53 or the internal Unbound service to the Internet.

@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ type Config struct {
 	APIToken            string
 	RulesFile           string
 	MaxConcurrent       int // defaults to 128, bounds simultaneous upstream queries
+	AllowedCIDRs        string // explicit DNS client CIDRs; loopback-only by default
 }
 
 type Server struct {
@@ -41,7 +43,9 @@ type Server struct {
 	blocked        atomic.Uint64
 	upstreamErrors atomic.Uint64
 	overloaded     atomic.Uint64
+	refused        atomic.Uint64
 	permits        chan struct{}
+	allowed        []netip.Prefix
 }
 
 func New(config Config) (*Server, error) {
@@ -77,6 +81,10 @@ func New(config Config) (*Server, error) {
 	if config.MaxConcurrent < 1 || config.MaxConcurrent > 4096 {
 		return nil, errors.New("DNS_MAX_CONCURRENT must be between 1 and 4096")
 	}
+	allowed, err := parseAllowedCIDRs(config.AllowedCIDRs)
+	if err != nil {
+		return nil, fmt.Errorf("DNS_ALLOWED_CIDRS: %w", err)
+	}
 	var upstreamTLS *tls.Config
 	if config.UpstreamMode == "tls" {
 		name := strings.TrimSpace(config.UpstreamTLSName)
@@ -108,13 +116,77 @@ func New(config Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load rules: %w", err)
 	}
-	s := &Server{config: config, tlsConfig: upstreamTLS, permits: make(chan struct{}, config.MaxConcurrent)}
+	s := &Server{config: config, tlsConfig: upstreamTLS, permits: make(chan struct{}, config.MaxConcurrent), allowed: allowed}
 	s.rules.Store(rules)
 	return s, nil
 }
 
+
+// parseAllowedCIDRs accepts a bounded list of explicit prefixes. Empty input
+// intentionally means localhost only. An unrestricted /0 prefix is rejected
+// so a public recursive resolver cannot be enabled by an accidental wildcard.
+func parseAllowedCIDRs(value string) ([]netip.Prefix, error) {
+	if strings.TrimSpace(value) == "" {
+		value = "127.0.0.0/8,::1/128"
+	}
+	if len(value) > 2048 {
+		return nil, errors.New("CIDR configuration is too long")
+	}
+	inputs := strings.Split(value, ",")
+	if len(inputs) > 32 {
+		return nil, errors.New("too many CIDR entries")
+	}
+	result := make([]netip.Prefix, 0, len(inputs))
+	for _, input := range inputs {
+		prefix, err := netip.ParsePrefix(strings.TrimSpace(input))
+		if err != nil || !prefix.IsValid() || prefix.Bits() == 0 ||
+			prefix.Addr().Is4In6() {
+			return nil, fmt.Errorf("invalid or overly broad CIDR %q", strings.TrimSpace(input))
+		}
+		result = append(result, prefix.Masked())
+	}
+	return result, nil
+}
+
+func (s *Server) accepts(remote net.Addr) bool {
+	if remote == nil {
+		return false
+	}
+	var raw net.IP
+	switch addr := remote.(type) {
+	case *net.TCPAddr:
+		raw = addr.IP
+	case *net.UDPAddr:
+		raw = addr.IP
+	default:
+		host, _, err := net.SplitHostPort(remote.String())
+		if err != nil {
+			return false
+		}
+		raw = net.ParseIP(host)
+	}
+	ip, ok := netip.AddrFromSlice(raw)
+	if !ok {
+		return false
+	}
+	ip = ip.Unmap()
+	for _, cidr := range s.allowed {
+		if cidr.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	s.queries.Add(1)
+	if !s.accepts(w.RemoteAddr()) {
+		s.refused.Add(1)
+		reply := new(dns.Msg)
+		reply.SetRcode(request, dns.RcodeRefused)
+		_ = w.WriteMsg(reply)
+		return
+	}
 	if len(request.Question) != 1 {
 		reply := new(dns.Msg)
 		reply.SetRcode(request, dns.RcodeFormatError)
@@ -203,6 +275,7 @@ func (s *Server) APIHandler() http.Handler {
 			"blocked": s.blocked.Load(),
 			"upstream_errors": s.upstreamErrors.Load(),
 			"overloaded": s.overloaded.Load(),
+			"refused": s.refused.Load(),
 			"rules": rules.Count(),
 			"exceptions": rules.AllowCount(),
 			"upstream_mode": s.config.UpstreamMode,
