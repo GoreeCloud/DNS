@@ -11,6 +11,8 @@ type Status = {
   upstream_errors: number;
   overloaded: number;
   refused: number;
+  local_records: number;
+  local_answers: number;
   exceptions: number;
   upstream_mode: string;
   rules: number;
@@ -61,6 +63,18 @@ function Console() {
     finally { setBusy(false); }
   }
 
+  async function reloadLocal() {
+    setBusy(true);
+    setMessage('');
+    setError('');
+    try {
+      const result: { records: number } = await api('/api/v1/local/reload', 'POST');
+      setStatus(await api('/api/v1/status'));
+      setMessage('Loaded ' + result.records + ' local DNS records from the server configuration.');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Local DNS reload failed'); }
+    finally { setBusy(false); }
+  }
+
   async function checkDomain() {
     setBusy(true);
     setError('');
@@ -103,10 +117,16 @@ function Console() {
           <article className="metric"><span>Allow exceptions</span><strong>{status.exceptions.toLocaleString()}</strong><small>Override matching blocks</small></article>
           <article className="metric"><span>Overload refusals</span><strong>{status.overloaded.toLocaleString()}</strong><small>Upstream capacity protection</small></article>
           <article className="metric"><span>Clients refused</span><strong>{status.refused.toLocaleString()}</strong><small>Outside configured network ACL</small></article>
+          <article className="metric"><span>Local DNS records</span><strong>{status.local_records.toLocaleString()}</strong><small>Configured exact-name overrides</small></article>
+          <article className="metric"><span>Local DNS answers</span><strong>{status.local_answers.toLocaleString()}</strong><small>Since process restart</small></article>
         </section>
         <section className="panel action-panel">
           <div><h2>Policy management</h2><p>Edit the rules file on your DNS host and reload it atomically. Invalid updates preserve the existing rules.</p></div>
           <button type="button" className="secondary" onClick={() => void reload()} disabled={busy}>Reload rules</button>
+        </section>
+        <section className="panel action-panel policy-check" aria-label="Local DNS records">
+          <div><h2>Local DNS records</h2><p>Edit your A, AAAA, or CNAME overrides on the DNS host, then reload the entire validated file atomically. Invalid files keep the last working set.</p></div>
+          <button className="secondary" type="button" disabled={busy} onClick={() => void reloadLocal()}>Reload local records</button>
         </section>
         <section className="panel policy-check" aria-label="Private domain policy check">
           <div><h2>Test a domain against policy</h2><p>Preview a local allow/block decision without sending a DNS query or saving a history. DNS may still fail upstream when no rule matches.</p></div>

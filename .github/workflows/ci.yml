@@ -81,6 +81,7 @@ jobs:
         run: |
           set -euo pipefail
           printf 'blocked.example\n' > config/rules.txt
+          printf 'A home.example 192.0.2.42\nAAAA home.example 2001:db8::42\nCNAME alias.example home.example\n' > config/local-records.txt
           docker compose up -d --build
           for i in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8080/healthz >/dev/null; then
@@ -91,21 +92,10 @@ jobs:
           curl --fail --silent http://127.0.0.1:8080/healthz
           curl --fail --silent -H "Authorization: Bearer $DNS_API_TOKEN" http://127.0.0.1:8080/api/v1/status \
             | python3 -c "import json,sys; a=json.load(sys.stdin); assert a['rules'] == 1"
-      - name: Verify DNS wire policy over UDP on localhost
-        run: |
-          python3 - <<'PY'
-          import socket
-          import struct
-          name = b"\x07blocked\x07example\x00"
-          query = struct.pack("!HHHHHH", 0xC13A, 0x0100, 1, 0, 0, 0) + name + struct.pack("!HH", 1, 1)
-          with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as conn:
-              conn.settimeout(3)
-              conn.sendto(query, ("127.0.0.1", 1053))
-              response, _ = conn.recvfrom(4096)
-          assert response[:2] == query[:2]
-          assert response[3] & 15 == 3, "expected NXDOMAIN for blocked.example"
-          print("Synthetic loopback-only NXDOMAIN behavior verified")
-          PY
+      - name: Verify synthetic loopback UDP TCP and local DNS records
+        env:
+          DNS_API_TOKEN: synthetic-ci-token-not-for-deployment
+        run: python3 scripts/loopback_smoke.py
       - name: Remove local test stack
         if: always()
         env:

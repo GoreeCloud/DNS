@@ -21,6 +21,8 @@ ApplicationWindow {
     property string failureCount: "—"
     property string overloadCount: "—"
     property string refusedCount: "—"
+    property string localRecordsCount: "—"
+    property string localAnswersCount: "—"
     property string ruleCount: "—"
     property string exceptionCount: "—"
     property string upstreamMode: "—"
@@ -51,6 +53,8 @@ ApplicationWindow {
                     root.failureCount = String(data.upstream_errors)
                     root.overloadCount = String(data.overloaded)
                     root.refusedCount = String(data.refused)
+                    root.localRecordsCount = String(data.local_records)
+                    root.localAnswersCount = String(data.local_answers)
                     root.ruleCount = String(data.rules)
                     root.exceptionCount = String(data.exceptions)
                     root.upstreamMode = String(data.upstream_mode)
@@ -63,6 +67,27 @@ ApplicationWindow {
             }
         }
         request.open("GET", address + "/api/v1/status")
+        request.setRequestHeader("Authorization", "Bearer " + token.text)
+        request.send()
+    }
+
+    function reloadLocal() {
+        if (!validAddress() || token.text.length < 16) {
+            notice = "Connect before reloading local DNS records."
+            return
+        }
+        notice = "Reloading validated local DNS records…"
+        var address = baseUrl.text.trim().replace(/\/+$/, "")
+        var request = new XMLHttpRequest()
+        request.onreadystatechange = function() {
+            if (request.readyState !== XMLHttpRequest.DONE) return
+            if (request.status === 200) {
+                root.refresh()
+            } else {
+                root.notice = "Local DNS reload rejected (" + request.status + ")."
+            }
+        }
+        request.open("POST", address + "/api/v1/local/reload")
         request.setRequestHeader("Authorization", "Bearer " + token.text)
         request.send()
     }
@@ -161,6 +186,8 @@ ApplicationWindow {
                         { title: "Upstream errors", count: root.failureCount },
                         { title: "Overload refusals", count: root.overloadCount },
                         { title: "Refused clients", count: root.refusedCount },
+                        { title: "Local records", count: root.localRecordsCount },
+                        { title: "Local answers", count: root.localAnswersCount },
                         { title: "Rules", count: root.ruleCount },
                         { title: "Exceptions", count: root.exceptionCount }
                     ]
@@ -183,6 +210,12 @@ ApplicationWindow {
                         }
                     }
                 }
+            }
+            Button {
+                text: "Reload local DNS records"
+                Layout.leftMargin: 30
+                onClicked: root.reloadLocal()
+                enabled: token.text.length >= 16
             }
             Label {
                 text: "Upstream mode: " + root.upstreamMode

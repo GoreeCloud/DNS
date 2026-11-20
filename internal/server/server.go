@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/GoreeCloud/DNS/internal/policy"
+	"github.com/GoreeCloud/DNS/internal/records"
 	"github.com/miekg/dns"
 )
 
@@ -31,6 +32,7 @@ type Config struct {
 	UpstreamTLSCAFile string // optional custom PEM CA file for tls mode
 	APIToken          string
 	RulesFile         string
+	LocalRecordsFile  string // optional, strictly validated static overrides
 	MaxConcurrent     int    // defaults to 128, bounds simultaneous upstream queries
 	AllowedCIDRs      string // explicit DNS client CIDRs; loopback-only by default
 }
@@ -39,6 +41,8 @@ type Server struct {
 	config         Config
 	tlsConfig      *tls.Config
 	rules          atomic.Pointer[policy.Rules]
+	local          atomic.Pointer[records.Store]
+	localAnswers   atomic.Uint64
 	queries        atomic.Uint64
 	blocked        atomic.Uint64
 	upstreamErrors atomic.Uint64
@@ -116,8 +120,18 @@ func New(config Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load rules: %w", err)
 	}
+	var local *records.Store
+	if config.LocalRecordsFile == "" {
+		local = records.Empty()
+	} else {
+		local, err = records.Load(config.LocalRecordsFile)
+		if err != nil {
+			return nil, fmt.Errorf("load local records: %w", err)
+		}
+	}
 	s := &Server{config: config, tlsConfig: upstreamTLS, permits: make(chan struct{}, config.MaxConcurrent), allowed: allowed}
 	s.rules.Store(rules)
+	s.local.Store(local)
 	return s, nil
 }
 
@@ -201,6 +215,18 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		_ = w.WriteMsg(reply)
 		return
 	}
+	// Local records are exact-name overrides; they never reach the upstream.
+	// Filter blocks take precedence over local overrides.
+	if answers, found := s.local.Load().Lookup(query); found {
+		s.localAnswers.Add(1)
+		reply := new(dns.Msg)
+		reply.SetReply(request)
+		reply.Authoritative = true
+		reply.RecursionAvailable = true
+		reply.Answer = answers
+		_ = w.WriteMsg(reply)
+		return
+	}
 	// Bound concurrent upstream work; policy-blocked replies are still served.
 	select {
 	case s.permits <- struct{}{}:
@@ -276,6 +302,8 @@ func (s *Server) APIHandler() http.Handler {
 			"overloaded":      s.overloaded.Load(),
 			"refused":         s.refused.Load(),
 			"rules":           rules.Count(),
+			"local_records":   s.local.Load().Count(),
+			"local_answers":   s.localAnswers.Load(),
 			"exceptions":      rules.AllowCount(),
 			"upstream_mode":   s.config.UpstreamMode,
 		})
@@ -300,6 +328,29 @@ func (s *Server) APIHandler() http.Handler {
 	}))
 	// POST keeps private domain names out of URLs, browser history and
 	// ordinary reverse-proxy request-path logs. This endpoint logs nothing.
+
+	mux.HandleFunc("POST /api/v1/local/reload", s.apiAuth(func(w http.ResponseWriter, r *http.Request) {
+		if s.config.LocalRecordsFile == "" {
+			http.Error(w, "local records file not configured", http.StatusConflict)
+			return
+		}
+		if r.Body != nil {
+			received, err := io.ReadAll(io.LimitReader(r.Body, 1))
+			if err != nil || len(received) != 0 {
+				http.Error(w, "request body not accepted", http.StatusBadRequest)
+				return
+			}
+		}
+		next, err := records.Load(s.config.LocalRecordsFile)
+		if err != nil {
+			http.Error(w, "invalid local records; old records retained", http.StatusUnprocessableEntity)
+			return
+		}
+		s.local.Store(next)
+		s.writeJSON(w, http.StatusOK, map[string]any{
+			"reloaded": true, "records": next.Count(),
+		})
+	}))
 	mux.HandleFunc("POST /api/v1/policy/check", s.apiAuth(func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
 			Name string `json:"name"`

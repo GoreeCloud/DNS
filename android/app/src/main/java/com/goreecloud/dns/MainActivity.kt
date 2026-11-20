@@ -46,11 +46,13 @@ private data class ResolverStatus(
     val exceptions: Long,
     val overloaded: Long,
     val refused: Long,
+    val localRecords: Long,
+    val localAnswers: Long,
     val upstreamMode: String
 )
 
 private suspend fun apiRequest(
-    base: String, token: String, path: String, payload: JSONObject? = null
+    base: String, token: String, path: String, payload: JSONObject? = null, method: String = "GET"
 ): JSONObject = withContext(Dispatchers.IO) {
     val server = base.trim().trimEnd('/')
     val origin = URL(server)
@@ -61,7 +63,7 @@ private suspend fun apiRequest(
     val connection = (URL(server + path).openConnection() as HttpURLConnection)
     try {
         connection.instanceFollowRedirects = false
-        connection.requestMethod = if (payload == null) "GET" else "POST"
+        connection.requestMethod = if (payload == null) method else "POST"
         connection.connectTimeout = 5000
         connection.readTimeout = 5000
         connection.useCaches = false
@@ -92,6 +94,8 @@ private suspend fun fetchStatus(base: String, token: String): ResolverStatus {
         data.getLong("exceptions"),
         data.getLong("overloaded"),
         data.getLong("refused"),
+        data.getLong("local_records"),
+        data.getLong("local_answers"),
         data.getString("upstream_mode")
     )
 }
@@ -162,9 +166,28 @@ private fun DNSConsole() {
             Metric("Upstream failures", data.errors)
             Metric("Rejected overloads", data.overloaded)
             Metric("Refused network clients", data.refused)
+            Metric("Configured local records", data.localRecords)
+            Metric("Local DNS answers", data.localAnswers)
             Metric("Active rules", data.rules)
             Metric("Allow exceptions", data.exceptions)
             Text("Upstream transport: " + data.upstreamMode)
+            Text("Local records are managed on the DNS host. Reloading validates them atomically.")
+            Button(enabled = !loading, onClick = {
+                loading = true
+                scope.launch {
+                    try {
+                        apiRequest(endpoint, token, "/api/v1/local/reload", method = "POST")
+                        status = fetchStatus(endpoint, token)
+                        notice = "Local DNS overrides reloaded."
+                    } catch (e: Exception) {
+                        notice = when (e) {
+                            is IllegalArgumentException, is IllegalStateException ->
+                                e.message ?: "Local DNS reload failed"
+                            else -> "Unable to reload local DNS overrides"
+                        }
+                    } finally { loading = false }
+                }
+            }) { Text("Reload local records") }
             Text("Check a domain against local policy without generating DNS traffic.",
                 style = MaterialTheme.typography.bodyMedium)
             OutlinedTextField(
