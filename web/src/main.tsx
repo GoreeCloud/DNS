@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import './gc-tokens.css';
 import './styles.css';
 
 type Status = {
@@ -56,7 +57,6 @@ function Console() {
   return (
     <main className="layout">
       <header className="topbar">
-        <div className="brand-icon" aria-hidden="true">G</div>
         <div><strong>GoreeCloud DNS</strong><span>Private network control</span></div>
         <span className="environment">Development preview</span>
       </header>

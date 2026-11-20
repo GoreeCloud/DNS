@@ -54,3 +54,8 @@ Original GoreeCloud source is MIT-licensed (see LICENSE); third-party components
 Suggested checks: go mod tidy, go test -race ./..., go vet ./..., go build ./cmd/dnsd, npm run build inside web, Android Gradle assembleDebug, and the Qt native Linux build. A CI workflow runs Go, web and Android checks, but until successful run evidence is available these are **unverified**. Linux device testing and DNS-wire isolated acceptance are pending.
 
 Read SECURITY.md, docs/architecture.md and docs/roadmap.md before using this project beyond localhost. Do not change LAN port 53, production DNS routing or firewall rules based on this preview.
+
+
+## GoreeCloud UI token provenance
+
+The web client includes a pinned copy of the official alpha GoreeCloud UI semantic token stylesheet in `web/src/gc-tokens.css`. The Android Compose color scheme and Linux QML colors map to the same source: [GoreeCloud/gc-ui](https://github.com/GoreeCloud/gc-ui) commit `be6fdda0dfa9ca509c01bafb9ed483a272fa821b` (MIT license). This pins verifiable design values without making an unreviewed live dependency. The alpha colors remain provisional, and visual/device acceptance remains outstanding.

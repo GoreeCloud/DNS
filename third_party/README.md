@@ -11,3 +11,8 @@
 The first-party MIT license does not relicense upstream components. These projects retain their own copyrights, notices, obligations and trademarks. No full upstream code trees have been copied into this repository. Reevaluate exact revisions, transitive dependencies, vulnerabilities, provenance and redistribution rights before importing or repackaging external source.
 
 React, AndroidX, Qt, base container images and operating system packages also retain their respective license terms. This attribution list is not a legal or security certification.
+
+
+## GoreeCloud UI design token bridge
+
+The upstream `GoreeCloud/gc-ui` project is MIT licensed (Copyright 2026 GoreeCloud). The file `web/src/gc-tokens.css` is a copy of its generated `src/tokens.css` at commit `be6fdda0dfa9ca509c01bafb9ed483a272fa821b`. Android and Linux mirror semantic colors from upstream `tokens/gc.tokens.json` at that pinned commit. Preserve upstream MIT notices and verify compatibility when refreshing the token bridge; do not treat alpha token acceptance as a Stable release.

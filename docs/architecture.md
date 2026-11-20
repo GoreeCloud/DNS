@@ -14,7 +14,7 @@ React web, native Qt Quick Linux and native Compose Android clients access the s
 - Wardveil governs cybersecurity and network defense. Token authentication exists; rate limiting, advanced ACLs, hardening and detection are pending.
 - GoreeCloud Mesh governs opt-in integrations and API coordination. No live Mesh integration is verified.
 - GoreeCloud Identity governs authentication and authorization. Current bearer-token MVP is not an Identity integration.
-- GoreeCloud UI governs production design language. Native source is a functional starting point, not verified compliance with centralized design tokens.
+- GoreeCloud UI governs production design language. The web client includes pinned canonical alpha semantic tokens and the native clients map the matching palette. The shared token bridge is source-aligned but does not establish visual, accessibility, device, or Stable release acceptance.
 
 ## Limits
 

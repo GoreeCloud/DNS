@@ -10,7 +10,7 @@ ApplicationWindow {
     minimumHeight: 470
     visible: true
     title: "GoreeCloud DNS"
-    color: "#0b111c"
+    color: "#0D121D"
 
     property string notice: "Connect to your self-hosted DNS instance."
     property string queryCount: "—"
@@ -49,14 +49,14 @@ ApplicationWindow {
         anchors.fill: parent
         anchors.margins: 30
         spacing: 16
-        Label { text: "GoreeCloud DNS"; font.pixelSize: 30; font.bold: true; color: "#f1f5fb" }
-        Label { text: "Native Linux console · Qt Quick 6.12.0"; color: "#b2c0d4" }
-        Label { text: "API endpoint"; color: "#dce8fa" }
+        Label { text: "GoreeCloud DNS"; font.pixelSize: 30; font.bold: true; color: "#F2F4FB" }
+        Label { text: "Native Linux console · Qt Quick 6.12.0"; color: "#CED5E5" }
+        Label { text: "API endpoint"; color: "#F2F4FB" }
         TextField { id: baseUrl; Layout.fillWidth: true; text: "http://127.0.0.1:8080"; placeholderText: "HTTPS URL" }
-        Label { text: "API token (held in memory only)"; color: "#dce8fa" }
+        Label { text: "API token (held in memory only)"; color: "#F2F4FB" }
         TextField { id: token; Layout.fillWidth: true; echoMode: TextInput.Password; placeholderText: "Paste your token" }
         Button { text: "Refresh status"; onClicked: root.refresh(); enabled: token.text.length >= 16 }
-        Label { text: root.notice; wrapMode: Text.WordWrap; Layout.fillWidth: true; color: "#b2c0d4" }
+        Label { text: root.notice; wrapMode: Text.WordWrap; Layout.fillWidth: true; color: "#CED5E5" }
         GridLayout {
             columns: 2
             rowSpacing: 12
@@ -74,17 +74,17 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 90
                     radius: 12
-                    color: "#172438"
-                    border.color: "#304461"
+                    color: "#171D2A"
+                    border.color: "#505B70"
                     ColumnLayout {
                         anchors.centerIn: parent
-                        Label { text: modelData.title; color: "#b2c0d4" }
-                        Label { text: modelData.count; font.pixelSize: 26; font.bold: true; color: "#fff" }
+                        Label { text: modelData.title; color: "#CED5E5" }
+                        Label { text: modelData.count; font.pixelSize: 26; font.bold: true; color: "#F2F4FB" }
                     }
                 }
             }
         }
         Item { Layout.fillHeight: true }
-        Label { text: "Local-first · No tracking · Requires an authorized DNS API"; color: "#8ba0bd" }
+        Label { text: "Local-first · No tracking · Requires an authorized DNS API"; color: "#CED5E5" }
     }
 }
