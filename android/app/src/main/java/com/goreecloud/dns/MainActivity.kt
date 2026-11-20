@@ -46,6 +46,9 @@ private data class ResolverStatus(
     val exceptions: Long,
     val overloaded: Long,
     val refused: Long,
+    val rateLimited: Long,
+    val rateQps: Int,
+    val rateBurst: Int,
     val localRecords: Long,
     val localAnswers: Long,
     val upstreamMode: String
@@ -94,6 +97,9 @@ private suspend fun fetchStatus(base: String, token: String): ResolverStatus {
         data.getLong("exceptions"),
         data.getLong("overloaded"),
         data.getLong("refused"),
+        data.getLong("rate_limited"),
+        data.getInt("rate_qps"),
+        data.getInt("rate_burst"),
         data.getLong("local_records"),
         data.getLong("local_answers"),
         data.getString("upstream_mode")
@@ -166,6 +172,8 @@ private fun DNSConsole() {
             Metric("Upstream failures", data.errors)
             Metric("Rejected overloads", data.overloaded)
             Metric("Refused network clients", data.refused)
+            Metric("Rate-limited queries", data.rateLimited)
+            Text("Global query rate: " + data.rateQps + "/s, burst " + data.rateBurst)
             Metric("Configured local records", data.localRecords)
             Metric("Local DNS answers", data.localAnswers)
             Metric("Active rules", data.rules)

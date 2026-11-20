@@ -19,3 +19,7 @@ Local DNS override files are host-controlled, strictly parsed, size-limited (2 M
 ## Container build privacy
 
 The Docker build context has an explicit source-code allowlist. Only Go compilation inputs, the two Dockerfiles and the Unbound development configuration are sent to the builder; local environment values, host policies and DNS record files are excluded. The runtime container never embeds private local policy files. Compose supplies config/rules.txt and config/local-records.txt as read-only bind mounts. Treat any locally edited, sensitive hostnames as private; do not commit or publish them to the public repository. This build policy mitigates inadvertent disclosure but does not replace container image or builder security reviews.
+
+## Aggregate query-rate protection
+
+The daemon now uses a bounded global token bucket (default 500 queries per second and burst 1000). After CIDR access checks, excess packets receive REFUSED. This protects upstream capacity without storing per-IP state or query history. Global throttling does not prevent one allowed host from starving other LAN clients; production rollouts require independently validated firewall and abuse controls.
