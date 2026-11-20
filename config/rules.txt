@@ -1,0 +1,4 @@
+# Local blocked domains. This is a sample; replace with approved local policy.
+# Example rules:
+# ||ads.example^
+# 0.0.0.0 tracker.example
