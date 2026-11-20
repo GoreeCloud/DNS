@@ -5,15 +5,15 @@ Open-source, self-hosted DNS filtering and resolver management, currently an **e
 ## Implemented source
 
 - First-party Go DNS gateway for UDP and TCP, using the BSD-licensed miekg/dns library; forwarding to a configurable recursive resolver.
-- Local deny rules using domain names, hosts-file lines and simple AdGuard domain patterns. Invalid policy reloads preserve the last good policy.
-- Protected administrator API using an environment-injected bearer token, reporting aggregate query, blocked-query, upstream-error and rule counts.
-- React + TypeScript web management dashboard, including connect, refresh, reload, and disconnect.
-- Native Qt Quick 6.12.0 Linux management UI source.
-- Native Kotlin + Jetpack Compose Android management UI source, requiring trusted HTTPS.
+- Local deny rules using domain names, hosts-file lines, simple AdGuard domain patterns, and explicit `@@||domain^` allow exceptions. Invalid policy reloads preserve the last good policy; parsing rejects oversized or unsupported files rather than partially loading them.
+- Protected administrator API using an environment-injected bearer token; aggregate counters include queries, blocked requests, upstream errors, overload refusals, rules, and exception counts. A private authenticated POST endpoint previews a domain's policy without creating a DNS query.
+- React + TypeScript web management dashboard, including connect, refresh, local policy preview, reload, and disconnect.
+- Native Qt Quick 6.12.0 Linux management UI source with aggregate counters and local policy preview.
+- Native Kotlin + Jetpack Compose Android management UI source with aggregate counters, local policy preview and strict HTTPS-only transport without redirects.
 - Separately packaged Unbound recursive resolver configuration for Docker Compose local development.
 - Unit tests, CI workflows, build manifests, Dockerfiles, security documentation and third-party attribution.
 
-The gateway currently retains no per-client addresses or query history. It implements a domain-suffix blocking policy only; regex, exceptions, authoritative zone administration, DNSSEC validation in the gateway, DoH, DoT, DHCP, advanced ACLs and production-grade filtering features remain unimplemented.
+The gateway currently retains no per-client addresses or query history. Supported filtering is domain suffix blocking and explicit allow exceptions, not full AdGuard syntax or regex. It has optional authenticated DNS-over-TLS **upstream forwarding** but does not offer inbound DoT/DoH listeners. Authoritative zone administration, DNSSEC validation in the gateway, DHCP, advanced ACLs, scheduled blocklist updates and production-grade filtering remain unimplemented.
 
 ## Local development
 
@@ -21,7 +21,7 @@ Prerequisites: Go 1.25, an available upstream recursive resolver on localhost po
 
 1. Copy the example environment file to a private environment file and generate a strong token. Never commit secrets.
 2. Set the DNS_API_TOKEN environment variable in your shell, then execute: go run ./cmd/dnsd
-3. By default the DNS gateway binds to 127.0.0.1:1053, the admin API to 127.0.0.1:8080, and the upstream to 127.0.0.1:5335.
+3. By default the DNS gateway binds to 127.0.0.1:1053, the admin API to 127.0.0.1:8080, and the upstream to 127.0.0.1:5335. `DNS_MAX_CONCURRENT` defaults to 128; excess upstream requests receive SERVFAIL while local-policy blocks remain responsive.
 4. Query with: dig @127.0.0.1 -p 1053 example.com A
 5. For the React client, change into the web directory, execute npm install and npm run dev, then open http://127.0.0.1:5173. The local Vite development proxy connects to the local API.
 
@@ -42,6 +42,7 @@ Alternatively, set DNS_API_TOKEN in the shell and run docker compose up --build 
 | GET | /healthz | None | Process HTTP response only; does not test DNS upstream |
 | GET | /api/v1/status | Bearer | JSON with product, state, queries, blocked, upstream_errors and rules |
 | POST | /api/v1/rules/reload | Bearer | Reload the configured local rules file, preserving the prior set if invalid |
+| POST | /api/v1/policy/check | Bearer | JSON request `{ "name": "example.org" }`; returns normalized name and `allowed`, `blocked` or `unmatched` decision without generating DNS traffic |
 
 ## Upstream projects and licenses
 
@@ -59,3 +60,11 @@ Read SECURITY.md, docs/architecture.md and docs/roadmap.md before using this pro
 ## GoreeCloud UI token provenance
 
 The web client includes a pinned copy of the official alpha GoreeCloud UI semantic token stylesheet in `web/src/gc-tokens.css`. The Android Compose color scheme and Linux QML colors map to the same source: [GoreeCloud/gc-ui](https://github.com/GoreeCloud/gc-ui) commit `be6fdda0dfa9ca509c01bafb9ed483a272fa821b` (MIT license). This pins verifiable design values without making an unreviewed live dependency. The alpha colors remain provisional, and visual/device acceptance remains outstanding.
+
+## DNS-over-TLS upstream forwarding (development)
+
+Set `DNS_UPSTREAM_MODE=tls`, `DNS_UPSTREAM_ADDR=203.0.113.10:853` (replace the documentation IP with the **real** server), and `DNS_UPSTREAM_TLS_NAME=resolver.example.org` (replace with the expected TLS certificate identity). The resolver must validate a trusted server certificate matching this name; the daemon never enables insecure certificate verification. Optionally supply a trusted PEM CA file using `DNS_UPSTREAM_TLS_CA_FILE`. The custom CA file must be explicitly readable by the daemon and is not mounted by the sample Compose topology. Use `DNS_UPSTREAM_MODE=tcp` to force conventional upstream TCP or `auto` (default) for client-aware UDP/TCP with TCP retry on UDP truncation.
+
+These controls configure outbound encrypted queries only; **they do not protect the inbound DNS listener or management HTTP API**. Keep the API bound to localhost or behind trusted HTTPS. DNS-over-TLS does not itself eliminate upstream metadata or replace GoreeShield privacy controls. Verify resolver identity, reachable port, certificate validity and trusted network egress before activation.
+
+Rules files accept one blocked domain per line, hosts-file `0.0.0.0`/ `127.0.0.1`/ `::` entries, `||blocked.example^`, and `@@||allowed.blocked.example^`. Exceptions override matching blocks. The file limit is 16 MiB and 250,000 distinct rules, with at most 256 KiB per line. Unsupported syntax rejects the entire reload and retains the prior active policy. No remote blocklist fetching occurs.

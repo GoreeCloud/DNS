@@ -3,11 +3,16 @@ package server
 import (
 	"context"
 	"crypto/subtle"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -17,38 +22,93 @@ import (
 )
 
 type Config struct {
-	DNSListen string
-	APIListen string
-	Upstream string
-	APIToken string
-	RulesFile string
+	DNSListen           string
+	APIListen           string
+	Upstream            string
+	UpstreamMode        string // auto (client transport), tcp, or tls
+	UpstreamTLSName     string // TLS certificate identity; required for tls mode
+	UpstreamTLSCAFile   string // optional custom PEM CA file for tls mode
+	APIToken            string
+	RulesFile           string
+	MaxConcurrent       int // defaults to 128, bounds simultaneous upstream queries
 }
 
 type Server struct {
-	config Config
-	rules atomic.Pointer[policy.Rules]
-	queries atomic.Uint64
-	blocked atomic.Uint64
+	config         Config
+	tlsConfig      *tls.Config
+	rules          atomic.Pointer[policy.Rules]
+	queries        atomic.Uint64
+	blocked        atomic.Uint64
 	upstreamErrors atomic.Uint64
+	overloaded     atomic.Uint64
+	permits        chan struct{}
 }
 
 func New(config Config) (*Server, error) {
-	if config.APIToken == "" || len(config.APIToken) < 16 {
+	if len(config.APIToken) < 16 {
 		return nil, errors.New("DNS_API_TOKEN must contain at least 16 characters")
 	}
-	for _, value := range []string{config.DNSListen, config.APIListen, config.Upstream} {
-		if _, _, err := net.SplitHostPort(value); err != nil {
-			return nil, fmt.Errorf("invalid endpoint: %w", err)
+	for name, value := range map[string]string{
+		"DNS_LISTEN_ADDR": config.DNSListen,
+		"DNS_API_ADDR": config.APIListen,
+		"DNS_UPSTREAM_ADDR": config.Upstream,
+	} {
+		_, port, err := net.SplitHostPort(value)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+		n, err := strconv.Atoi(port)
+		if err != nil || n < 1 || n > 65535 {
+			return nil, fmt.Errorf("%s: port must be between 1 and 65535", name)
 		}
 	}
 	if config.RulesFile == "" {
 		return nil, errors.New("rules file is required")
 	}
+	if config.UpstreamMode == "" {
+		config.UpstreamMode = "auto"
+	}
+	if config.UpstreamMode != "auto" && config.UpstreamMode != "tcp" && config.UpstreamMode != "tls" {
+		return nil, errors.New("DNS_UPSTREAM_MODE must be auto, tcp or tls")
+	}
+	if config.MaxConcurrent == 0 {
+		config.MaxConcurrent = 128
+	}
+	if config.MaxConcurrent < 1 || config.MaxConcurrent > 4096 {
+		return nil, errors.New("DNS_MAX_CONCURRENT must be between 1 and 4096")
+	}
+	var upstreamTLS *tls.Config
+	if config.UpstreamMode == "tls" {
+		name := strings.TrimSpace(config.UpstreamTLSName)
+		if name == "" || strings.ContainsAny(name, " \t\r\n:/") {
+			return nil, errors.New("DNS_UPSTREAM_TLS_NAME must be a certificate identity in tls mode")
+		}
+		upstreamTLS = &tls.Config{
+			ServerName: name,
+			MinVersion: tls.VersionTLS12,
+		}
+		if config.UpstreamTLSCAFile != "" {
+			pemData, err := os.ReadFile(config.UpstreamTLSCAFile)
+			if err != nil {
+				return nil, fmt.Errorf("read TLS CA file: %w", err)
+			}
+			roots, err := x509.SystemCertPool()
+			if err != nil || roots == nil {
+				roots = x509.NewCertPool()
+			}
+			if !roots.AppendCertsFromPEM(pemData) {
+				return nil, errors.New("DNS_UPSTREAM_TLS_CA_FILE has no valid CA certificates")
+			}
+			upstreamTLS.RootCAs = roots
+		}
+	} else if config.UpstreamTLSName != "" || config.UpstreamTLSCAFile != "" {
+		return nil, errors.New("upstream TLS settings require DNS_UPSTREAM_MODE=tls")
+	}
 	rules, err := policy.Load(config.RulesFile)
 	if err != nil {
 		return nil, fmt.Errorf("load rules: %w", err)
 	}
-	s := &Server{config: config}
+	s := &Server{config: config, tlsConfig: upstreamTLS, permits: make(chan struct{}, config.MaxConcurrent)}
 	s.rules.Store(rules)
 	return s, nil
 }
@@ -70,14 +130,33 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		_ = w.WriteMsg(reply)
 		return
 	}
+	// Bound concurrent upstream work; policy-blocked replies are still served.
+	select {
+	case s.permits <- struct{}{}:
+		defer func() { <-s.permits }()
+	default:
+		s.overloaded.Add(1)
+		reply := new(dns.Msg)
+		reply.SetRcode(request, dns.RcodeServerFailure)
+		reply.RecursionAvailable = true
+		_ = w.WriteMsg(reply)
+		return
+	}
 
 	network := "udp"
-	if remote := w.RemoteAddr(); remote != nil && strings.HasPrefix(remote.Network(), "tcp") {
+	switch s.config.UpstreamMode {
+	case "tls":
+		network = "tcp-tls"
+	case "tcp":
 		network = "tcp"
+	default:
+		if remote := w.RemoteAddr(); remote != nil && strings.HasPrefix(remote.Network(), "tcp") {
+			network = "tcp"
+		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	client := &dns.Client{Net: network, Timeout: 3 * time.Second}
+	client := &dns.Client{Net: network, Timeout: 3 * time.Second, TLSConfig: s.tlsConfig}
 	answer, _, err := client.ExchangeContext(ctx, request, s.config.Upstream)
 	if err == nil && answer != nil && answer.Truncated && network == "udp" {
 		client.Net = "tcp"
@@ -116,19 +195,26 @@ func (s *Server) APIHandler() http.Handler {
 		_, _ = w.Write([]byte("running\n"))
 	})
 	mux.HandleFunc("GET /api/v1/status", s.apiAuth(func(w http.ResponseWriter, _ *http.Request) {
+		rules := s.rules.Load()
 		s.writeJSON(w, http.StatusOK, map[string]any{
 			"product": "GoreeCloud DNS",
 			"state": "running",
 			"queries": s.queries.Load(),
 			"blocked": s.blocked.Load(),
 			"upstream_errors": s.upstreamErrors.Load(),
-			"rules": s.rules.Load().Count(),
+			"overloaded": s.overloaded.Load(),
+			"rules": rules.Count(),
+			"exceptions": rules.AllowCount(),
+			"upstream_mode": s.config.UpstreamMode,
 		})
 	}))
 	mux.HandleFunc("POST /api/v1/rules/reload", s.apiAuth(func(w http.ResponseWriter, r *http.Request) {
-		if r.ContentLength > 0 {
-			http.Error(w, "request body not accepted", http.StatusBadRequest)
-			return
+		if r.Body != nil {
+			received, err := io.ReadAll(io.LimitReader(r.Body, 1))
+			if err != nil || len(received) != 0 {
+				http.Error(w, "request body not accepted", http.StatusBadRequest)
+				return
+			}
 		}
 		rules, err := policy.Load(s.config.RulesFile)
 		if err != nil {
@@ -136,7 +222,33 @@ func (s *Server) APIHandler() http.Handler {
 			return
 		}
 		s.rules.Store(rules)
-		s.writeJSON(w, http.StatusOK, map[string]any{"rules": rules.Count(), "reloaded": true})
+		s.writeJSON(w, http.StatusOK, map[string]any{
+			"rules": rules.Count(), "exceptions": rules.AllowCount(), "reloaded": true,
+		})
+	}))
+	// POST keeps private domain names out of URLs, browser history and
+	// ordinary reverse-proxy request-path logs. This endpoint logs nothing.
+	mux.HandleFunc("POST /api/v1/policy/check", s.apiAuth(func(w http.ResponseWriter, r *http.Request) {
+		var input struct { Name string `json:"name"` }
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&input); err != nil {
+			http.Error(w, "invalid policy check", http.StatusBadRequest)
+			return
+		}
+		var extra any
+		if err := decoder.Decode(&extra); err != io.EOF {
+			http.Error(w, "invalid policy check", http.StatusBadRequest)
+			return
+		}
+		name, err := policy.ValidateDomain(input.Name)
+		if err != nil {
+			http.Error(w, "invalid domain", http.StatusBadRequest)
+			return
+		}
+		s.writeJSON(w, http.StatusOK, map[string]any{
+			"name": name, "decision": s.rules.Load().Decide(name),
+		})
 	}))
 	return mux
 }

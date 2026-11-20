@@ -23,7 +23,7 @@ label { display: block; margin-bottom: var(--gc-space-2); color: var(--gc-text);
 input { width: 100%; min-height: var(--gc-control-min); background: var(--gc-surface-tonal); border: 1px solid var(--gc-outline); border-radius: var(--gc-radius-sm); padding: var(--gc-space-3) var(--gc-space-4); color: var(--gc-text); }
 button:not(.disconnect) { background: var(--gc-brand); color: var(--gc-on-brand); border: 0; border-radius: var(--gc-radius-sm); font-weight: 700; padding: var(--gc-space-3) var(--gc-space-5); }
 button.secondary { background: var(--gc-brand-container); color: var(--gc-on-brand-container); border: 1px solid var(--gc-outline-soft); white-space: nowrap; }
-.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--gc-space-3); margin: var(--gc-space-6) 0; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gc-space-3); margin: var(--gc-space-6) 0; }
 .metric { background: var(--gc-surface); border: 1px solid var(--gc-outline-soft); border-radius: var(--gc-radius-sm); padding: var(--gc-space-5); box-shadow: var(--gc-shadow-1); }
 .metric span { color: var(--gc-text-soft); font-size: var(--gc-type-label); display: block; }
 .metric strong { display: block; font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -.04em; margin: var(--gc-space-4) 0 var(--gc-space-1); }
@@ -38,3 +38,8 @@ footer { margin: var(--gc-space-16) 0 var(--gc-space-8); padding-top: var(--gc-s
 @media(max-width: 760px) { .intro { padding-top: var(--gc-space-12); } .metrics { grid-template-columns: repeat(2,1fr); } .action-panel { flex-direction: column; align-items: stretch; } .environment { display: none; } }
 @media(max-width: 450px) { .layout { padding: 0 var(--gc-space-4); } .panel { padding: var(--gc-space-5); } .input-row { flex-direction: column; } .metrics { gap: var(--gc-space-2); } .metric { padding: var(--gc-space-4); } }
 @media(prefers-reduced-motion:no-preference) { button { transition: opacity var(--gc-motion-fast), transform var(--gc-motion-fast); } button:not(:disabled):active { transform:scale(.98); } }
+
+.policy-check { margin-top: var(--gc-space-6); }
+.policy-check form { margin-top: var(--gc-space-5); }
+.policy-result { margin-top: var(--gc-space-4) !important; padding: var(--gc-space-3); border-radius: var(--gc-radius-sm); background: var(--gc-surface-tonal); overflow-wrap: anywhere; }
+.transport-note { color: var(--gc-text-soft); font-size: var(--gc-type-support); }
