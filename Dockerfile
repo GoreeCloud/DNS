@@ -9,6 +9,7 @@ FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
 COPY --from=build /dnsd /dnsd
 COPY config/rules.txt /app/config/rules.txt
+COPY config/local-records.txt /app/config/local-records.txt
 EXPOSE 1053/udp 1053/tcp 8080/tcp
 USER 65532:65532
 ENTRYPOINT ["/dnsd"]

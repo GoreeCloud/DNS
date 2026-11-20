@@ -1,0 +1,5 @@
+# Local override examples (all commented; no production DNS changes):
+# A home.example 192.0.2.42
+# AAAA home.example 2001:db8::42
+# CNAME alias.example home.example
+# Each exact-name override returns a 60-second TTL. DNS forwarding handles names not listed here.

@@ -22,9 +22,11 @@ services:
       # host DNS port remains loopback-only and is not a public resolver.
       DNS_ALLOWED_CIDRS: "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
       DNS_RULES_FILE: "/app/config/rules.txt"
+      DNS_LOCAL_RECORDS_FILE: "/app/config/local-records.txt"
       DNS_API_TOKEN: "${DNS_API_TOKEN:?set a unique 16+ character token}"
     volumes:
       - "./config/rules.txt:/app/config/rules.txt:ro"
+      - "./config/local-records.txt:/app/config/local-records.txt:ro"
     ports:
       - "127.0.0.1:1053:1053/udp"
       - "127.0.0.1:1053:1053/tcp"

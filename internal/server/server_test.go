@@ -263,3 +263,62 @@ func TestDefaultDNSAllowlistIsLoopback(t *testing.T) {
 		t.Fatal("DNS listener did not default to loopback-only allowlist")
 	}
 }
+
+
+func TestLocalRecordResponseAndAtomicReload(t *testing.T) {
+	cfg, _ := testConfig(t)
+	recordsFile := filepath.Join(t.TempDir(), "local-records.txt")
+	initial := strings.Join([]string{
+		"A home.example 192.0.2.51",
+		"A blocked.test 192.0.2.99",
+	}, string(byte(10)))
+	if err := os.WriteFile(recordsFile, []byte(initial), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg.LocalRecordsFile = recordsFile
+	s, err := New(cfg)
+	if err != nil {t.Fatal(err)}
+	if s.local.Load().Count() != 2 {t.Fatal("expected two local overrides")}
+
+	query := new(dns.Msg)
+	query.SetQuestion("home.example.",dns.TypeA)
+	answer := new(writer)
+	s.ServeDNS(answer,query)
+	if answer.answer == nil || answer.answer.Rcode != dns.RcodeSuccess ||
+		!answer.answer.Authoritative || len(answer.answer.Answer) != 1 {
+		t.Fatalf("local override not answered: %+v",answer.answer)
+	}
+	first, ok := answer.answer.Answer[0].(*dns.A)
+	if !ok || first.A.String()!="192.0.2.51" {t.Fatalf("wrong local IPv4 answer: %+v",answer.answer.Answer)}
+	if s.localAnswers.Load()!=1 {t.Fatal("missing local answer aggregate")}
+
+	// Filters still override local records and do not disclose the local record.
+	query.SetQuestion("blocked.test.",dns.TypeA)
+	deny := new(writer)
+	s.ServeDNS(deny,query)
+	if deny.answer == nil || deny.answer.Rcode != dns.RcodeNameError ||
+		s.localAnswers.Load()!=1 {t.Fatal("local records bypassed block policy")}
+
+	endpoint := s.APIHandler()
+	post := func() *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPost,"/api/v1/local/reload",nil)
+		request.Header.Set("Authorization","Bearer test-token-123456")
+		response := httptest.NewRecorder()
+		endpoint.ServeHTTP(response,request)
+		return response
+	}
+	if err := os.WriteFile(recordsFile, []byte("A bad.example invalid-address"),0600);err!=nil{t.Fatal(err)}
+	if response:=post();response.Code!=http.StatusUnprocessableEntity || s.local.Load().Count()!=2 {
+		t.Fatalf("bad reload replaced policy: %d",response.Code)
+	}
+
+	if err := os.WriteFile(recordsFile, []byte("A home.example 192.0.2.88"),0600);err!=nil{t.Fatal(err)}
+	if response:=post();response.Code!=http.StatusOK || s.local.Load().Count()!=1 {
+		t.Fatalf("good reload rejected: %d",response.Code)
+	}
+	query.SetQuestion("home.example.",dns.TypeA)
+	fresh := new(writer)
+	s.ServeDNS(fresh,query)
+	updated,ok := fresh.answer.Answer[0].(*dns.A)
+	if !ok || updated.A.String()!="192.0.2.88" {t.Fatal("updated local response not visible")}
+}

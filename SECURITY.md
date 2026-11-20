@@ -13,3 +13,5 @@ The local policy engine recognizes limited syntax, including explicit allow exce
 For security reports, use GitHub private vulnerability reporting when enabled or an authorized private channel; never publish real credentials, query logs or private network data.
 
 Production gates include broader protocol fuzzing, DNS-wire acceptance, per-client rate limits and firewall acceptance, supply-chain and image pins, signed builds, full TLS lifecycle, backups and restore rehearsal, and an explicitly rehearsed DNS cutover rollback. None is yet certified complete.
+
+Local DNS override files are host-controlled, strictly parsed, size-limited (2 MiB), and atomically reloaded. Do not write real internal hostnames, IP topology, API secrets, or private DNS data into public GitHub. The API cannot create records or fetch remote rule sources. Locally configured records override upstream responses by exact name but never bypass block policy or the DNS client CIDR ACL. CNAME loops and resolver behavior are not yet fully evaluated; maintain a cautious staging-only rollout and avoid production use.

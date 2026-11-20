@@ -6,8 +6,9 @@ Open-source, self-hosted DNS filtering and resolver management, currently an **e
 
 - First-party Go DNS gateway for UDP and TCP, using the BSD-licensed miekg/dns library; forwarding to a configurable recursive resolver.
 - Local deny rules using domain names, hosts-file lines, simple AdGuard domain patterns, and explicit `@@||domain^` allow exceptions. Invalid policy reloads preserve the last good policy; parsing rejects oversized or unsupported files rather than partially loading them.
+- Optional local A, AAAA, and CNAME DNS record overrides loaded from a validated local file. Exact-name matches never contact the upstream; block rules take precedence. Unsupported record syntax or failed reload preserves the prior working records.
 - Protected administrator API using an environment-injected bearer token; aggregate counters include queries, blocked requests, upstream errors, overload refusals, rules, and exception counts. A private authenticated POST endpoint previews a domain's policy without creating a DNS query.
-- React + TypeScript web management dashboard, including connect, refresh, local policy preview, reload, and disconnect.
+- React + TypeScript web management dashboard, including connect, refresh, local policy preview, DNS record reload, rule reload, and disconnect.
 - Native Qt Quick 6.12.0 Linux management UI source with aggregate counters and local policy preview.
 - Native Kotlin + Jetpack Compose Android management UI source with aggregate counters, local policy preview and strict HTTPS-only transport without redirects.
 - Separately packaged Unbound recursive resolver configuration for Docker Compose local development.
@@ -43,6 +44,7 @@ Alternatively, set DNS_API_TOKEN in the shell and run docker compose up --build 
 | GET | /api/v1/status | Bearer | JSON with product, state, queries, blocked, upstream_errors and rules |
 | POST | /api/v1/rules/reload | Bearer | Reload the configured local rules file, preserving the prior set if invalid |
 | POST | /api/v1/policy/check | Bearer | JSON request `{ "name": "example.org" }`; returns normalized name and `allowed`, `blocked` or `unmatched` decision without generating DNS traffic |
+| POST | /api/v1/local/reload | Bearer | Reload bounded local A/AAAA/CNAME overrides atomically; invalid files retain previous records, disabled configuration returns 409 |
 
 ## Upstream projects and licenses
 
@@ -74,3 +76,17 @@ Rules files accept one blocked domain per line, hosts-file `0.0.0.0`/ `127.0.0.1
 The daemon refuses DNS queries unless the client IP belongs to `DNS_ALLOWED_CIDRS`. Without an explicit override, only `127.0.0.0/8` and `::1/128` are accepted—even if someone configures the listener to bind to all interfaces. For an isolated home network, explicitly configure only the actual local prefixes you intend to serve (for example `DNS_ALLOWED_CIDRS=127.0.0.0/8,192.168.50.0/24`). Invalid CIDRs and unrestricted `0.0.0.0/0` or `::/0` are rejected at startup. Unauthorized DNS clients receive REFUSED and increment a non-identifying aggregate counter. Client IPs are not stored or logged.
 
 The development Docker Compose topology explicitly permits RFC1918 bridge clients, while still publishing DNS and the admin API on **host loopback only**. The bundled Unbound recursive backend also refuses non-private-network clients. These are defense-in-depth development controls, not a substitute for firewall rules, rate limits, safe authoritative configuration or a tested public resolver deployment. Do **not** expose port 53 or the internal Unbound service to the Internet.
+
+## Local DNS record overrides (development)
+
+The new `DNS_LOCAL_RECORDS_FILE` setting points to a file of optional **exact-name** DNS overrides. The default repository path is `config/local-records.txt`; all entries are commented, so no local responses are generated until the operator adds records. Supported formats are:
+
+```text
+A printer.example 192.0.2.42
+AAAA host.example 2001:db8::42
+CNAME alias.example host.example
+```
+
+These are **documentation addresses**, not real network destinations. Each non-comment line requires precisely `TYPE NAME VALUE`. The resolver uses 60-second TTL for local records and only serves explicit exact matches; an unknown name still forwards to Unbound. The same local name with a different requested record type receives NOERROR with no answers (NODATA). A CNAME cannot coexist with A/AAAA for the same name. The code does **not** implement general authoritative zone hosting, DNS record management via the API, SOA/NS records, DNSSEC signing, wildcards, live service discovery, or DHCP. The gateway's deny-policy rules take precedence even for configured local records.
+
+The parser rejects invalid IPs/names, unsupported types, files larger than 2 MiB, or more than 10,000 distinct overrides. Edit records on the host and call authenticated `POST /api/v1/local/reload` or the equivalent management-client control to atomically refresh; errors leave the prior active set intact. The API never accepts raw record values, file paths, shell commands, or remote downloads. Local record aggregate metrics contain counts only; the API does not expose private hostnames. The development Compose topology mounts this file read-only and publishes DNS ports to loopback only.

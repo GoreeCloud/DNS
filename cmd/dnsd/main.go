@@ -34,6 +34,7 @@ func main() {
 		UpstreamTLSCAFile: os.Getenv("DNS_UPSTREAM_TLS_CA_FILE"),
 		APIToken:          os.Getenv("DNS_API_TOKEN"),
 		RulesFile:         env("DNS_RULES_FILE", "config/rules.txt"),
+		LocalRecordsFile:  env("DNS_LOCAL_RECORDS_FILE", "config/local-records.txt"),
 		MaxConcurrent:     maxConcurrent,
 		AllowedCIDRs:      env("DNS_ALLOWED_CIDRS", "127.0.0.0/8,::1/128"),
 	}
