@@ -101,9 +101,7 @@ func TestReloadRejectsBodyAndRetainsRules(t *testing.T) {
 	response:=httptest.NewRecorder()
 	h.ServeHTTP(response,req)
 	if response.Code!=400 || s.rules.Load().Count()!=1 { t.Fatalf("status=%d count=%d",response.Code,s.rules.Load().Count()) }
-	if err:=os.WriteFile(path,[]byte("blocked.test
-@@||safe.blocked.test^
-"),0600);err!=nil{t.Fatal(err)}
+	if err:=os.WriteFile(path,[]byte("blocked.test" + string(byte(10)) + "@@||safe.blocked.test^" + string(byte(10))),0600);err!=nil{t.Fatal(err)}
 	reload:=httptest.NewRequest(http.MethodPost,"/api/v1/rules/reload",nil)
 	reload.Header.Set("Authorization","Bearer test-token-123456")
 	w:=httptest.NewRecorder();h.ServeHTTP(w,reload)

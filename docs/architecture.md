@@ -4,7 +4,7 @@
 
 DNS clients --> GoreeCloud UDP/TCP DNS gateway :1053 --> local policy decision --> Unbound recursive service :5335 --> DNS hierarchy.
 
-Blocked domains return NXDOMAIN without contacting upstream. Other requests forward to the configured resolver, attempting TCP when UDP is truncated. Failed upstream exchanges return SERVFAIL. The daemon exposes separate authenticated aggregate statistics and atomic on-disk rule reload through the management API.
+Blocked domains return NXDOMAIN without contacting upstream. Explicit `@@||domain^` allow exceptions override blocked suffixes. Other requests forward to the configured resolver: client-aware UDP/TCP with TCP fallback, forced TCP, or authenticated upstream DNS-over-TLS. Failed upstream exchanges or bounded-concurrency refusals return SERVFAIL. The daemon exposes separate authenticated aggregate statistics, atomic on-disk rule reload, and private policy preview through the management API.
 
 React web, native Qt Quick Linux and native Compose Android clients access the same versioned management API. The clients do not execute host commands or process DNS packets.
 
@@ -18,6 +18,6 @@ React web, native Qt Quick Linux and native Compose Android clients access the s
 
 ## Limits
 
-The gateway does not serve authoritative zones, issue dynamic DNS changes, validate DNSSEC itself, provide encrypted DNS listeners, inspect individual clients, or support complete ad-block rules. The Unbound service is an independent runtime dependency; its security and recursive validation configuration must be tested separately.
+The gateway does not serve authoritative zones, issue dynamic DNS changes, validate DNSSEC itself, provide encrypted DNS listeners, inspect individual clients, or support complete ad-block rules. Upstream DoT is outbound only and requires certificate identity validation; the inbound management API is still HTTP on loopback by default. The Unbound service is an independent runtime dependency; its security and recursive validation configuration must be tested separately.
 
 No DNS routing, router configuration, external ingress or host deployment is performed by this repository.

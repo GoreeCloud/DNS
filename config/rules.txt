@@ -2,3 +2,7 @@
 # Example rules:
 # ||ads.example^
 # 0.0.0.0 tracker.example
+
+# Supported example for an explicit allow exception:
+# @@||trusted.ads.example^
+# Rules are local-only, bounded, and reloaded atomically.
