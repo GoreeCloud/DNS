@@ -1,0 +1,15 @@
+# Allowlist only compile-time inputs, so local credentials, policy, query data,
+# private network configuration, app builds and VCS metadata never enter the
+# Docker build context (including remote build backends and intermediate layers).
+*
+!Dockerfile
+!go.mod
+!go.sum
+!cmd/
+!cmd/**
+!internal/
+!internal/**
+!deploy/
+!deploy/unbound/
+!deploy/unbound/Dockerfile
+!deploy/unbound/goreecloud.conf
