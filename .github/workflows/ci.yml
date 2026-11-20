@@ -110,6 +110,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Qt system graphics development requirements
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgl-dev libopengl-dev libegl-dev libxkbcommon-dev
       - name: Install audited installer tool into isolated environment
         run: |
           python3 -m venv "$RUNNER_TEMP/aqt-venv"
