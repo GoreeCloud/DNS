@@ -11,3 +11,7 @@
 *.apk
 *.aab
 .DS_Store
+
+# Python test-bytecode caches
+__pycache__/
+*.pyc
