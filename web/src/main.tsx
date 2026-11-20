@@ -11,6 +11,9 @@ type Status = {
   upstream_errors: number;
   overloaded: number;
   refused: number;
+  rate_limited: number;
+  rate_qps: number;
+  rate_burst: number;
   local_records: number;
   local_answers: number;
   exceptions: number;
@@ -117,6 +120,7 @@ function Console() {
           <article className="metric"><span>Allow exceptions</span><strong>{status.exceptions.toLocaleString()}</strong><small>Override matching blocks</small></article>
           <article className="metric"><span>Overload refusals</span><strong>{status.overloaded.toLocaleString()}</strong><small>Upstream capacity protection</small></article>
           <article className="metric"><span>Clients refused</span><strong>{status.refused.toLocaleString()}</strong><small>Outside configured network ACL</small></article>
+          <article className="metric"><span>Rate-limited queries</span><strong>{status.rate_limited.toLocaleString()}</strong><small>Global abuse protection</small></article>
           <article className="metric"><span>Local DNS records</span><strong>{status.local_records.toLocaleString()}</strong><small>Configured exact-name overrides</small></article>
           <article className="metric"><span>Local DNS answers</span><strong>{status.local_answers.toLocaleString()}</strong><small>Since process restart</small></article>
         </section>
@@ -139,6 +143,7 @@ function Console() {
           </form>
           {decision && <p role="status" className="policy-result"><strong>{decision.name}</strong>: {decision.decision === 'blocked' ? 'blocked by local policy' : decision.decision === 'allowed' ? 'explicitly allowed by exception' : 'no local rule matched (forward upstream)'}</p>}
         </section>
+        <p className="transport-note">Global DNS query budget: {status.rate_qps.toLocaleString()}/s, burst {status.rate_burst.toLocaleString()}.</p>
         <p className="transport-note">Upstream transport: {status.upstream_mode === 'tls' ? 'DNS-over-TLS' : status.upstream_mode === 'tcp' ? 'DNS over TCP' : 'Client-appropriate UDP/TCP'}</p>
         <button className="disconnect" type="button" onClick={() => {setToken(''); setStatus(null); setDomain(''); setDecision(null); setError(''); setMessage('');}}>Disconnect and forget token</button>
       </> : <section className="empty"><h2>Ready when you are</h2><p>Connect locally or through a trusted HTTPS reverse proxy to see live aggregate metrics. Query histories and client IP addresses are not retained.</p></section>}

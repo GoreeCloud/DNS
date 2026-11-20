@@ -25,6 +25,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("DNS_MAX_CONCURRENT must be an integer")
 	}
+	rateQPS, err := strconv.Atoi(env("DNS_RATE_QPS", "500"))
+	if err != nil {
+		log.Fatal("DNS_RATE_QPS must be an integer")
+	}
+	rateBurst, err := strconv.Atoi(env("DNS_RATE_BURST", "1000"))
+	if err != nil {
+		log.Fatal("DNS_RATE_BURST must be an integer")
+	}
 	cfg := server.Config{
 		DNSListen:         env("DNS_LISTEN_ADDR", "127.0.0.1:1053"),
 		APIListen:         env("DNS_API_ADDR", "127.0.0.1:8080"),
@@ -36,6 +44,8 @@ func main() {
 		RulesFile:         env("DNS_RULES_FILE", "config/rules.txt"),
 		LocalRecordsFile:  env("DNS_LOCAL_RECORDS_FILE", "config/local-records.txt"),
 		MaxConcurrent:     maxConcurrent,
+		RateQPS:           rateQPS,
+		RateBurst:         rateBurst,
 		AllowedCIDRs:      env("DNS_ALLOWED_CIDRS", "127.0.0.0/8,::1/128"),
 	}
 	s, err := server.New(cfg)

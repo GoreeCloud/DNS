@@ -21,6 +21,9 @@ ApplicationWindow {
     property string failureCount: "—"
     property string overloadCount: "—"
     property string refusedCount: "—"
+    property string rateLimitedCount: "—"
+    property string rateQps: "—"
+    property string rateBurst: "—"
     property string localRecordsCount: "—"
     property string localAnswersCount: "—"
     property string ruleCount: "—"
@@ -53,6 +56,9 @@ ApplicationWindow {
                     root.failureCount = String(data.upstream_errors)
                     root.overloadCount = String(data.overloaded)
                     root.refusedCount = String(data.refused)
+                    root.rateLimitedCount = String(data.rate_limited)
+                    root.rateQps = String(data.rate_qps)
+                    root.rateBurst = String(data.rate_burst)
                     root.localRecordsCount = String(data.local_records)
                     root.localAnswersCount = String(data.local_answers)
                     root.ruleCount = String(data.rules)
@@ -186,6 +192,7 @@ ApplicationWindow {
                         { title: "Upstream errors", count: root.failureCount },
                         { title: "Overload refusals", count: root.overloadCount },
                         { title: "Refused clients", count: root.refusedCount },
+                        { title: "Rate-limited", count: root.rateLimitedCount },
                         { title: "Local records", count: root.localRecordsCount },
                         { title: "Local answers", count: root.localAnswersCount },
                         { title: "Rules", count: root.ruleCount },
@@ -216,6 +223,11 @@ ApplicationWindow {
                 Layout.leftMargin: 30
                 onClicked: root.reloadLocal()
                 enabled: token.text.length >= 16
+            }
+            Label {
+                text: "Global query budget: " + root.rateQps + "/s, burst " + root.rateBurst
+                color: "#CED5E5"
+                Layout.leftMargin: 30
             }
             Label {
                 text: "Upstream mode: " + root.upstreamMode

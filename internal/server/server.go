@@ -35,6 +35,8 @@ type Config struct {
 	LocalRecordsFile  string // optional, strictly validated static overrides
 	MaxConcurrent     int    // defaults to 128, bounds simultaneous upstream queries
 	AllowedCIDRs      string // explicit DNS client CIDRs; loopback-only by default
+	RateQPS           int    // process-wide query rate; 500/sec by default
+	RateBurst         int    // process-wide request burst; 1000 by default
 }
 
 type Server struct {
@@ -48,6 +50,8 @@ type Server struct {
 	upstreamErrors atomic.Uint64
 	overloaded     atomic.Uint64
 	refused        atomic.Uint64
+	rateLimited    atomic.Uint64
+	queryBudget    *queryBudget
 	permits        chan struct{}
 	allowed        []netip.Prefix
 }
@@ -84,6 +88,15 @@ func New(config Config) (*Server, error) {
 	}
 	if config.MaxConcurrent < 1 || config.MaxConcurrent > 4096 {
 		return nil, errors.New("DNS_MAX_CONCURRENT must be between 1 and 4096")
+	}
+	if config.RateQPS == 0 {
+		config.RateQPS = 500
+	}
+	if config.RateBurst == 0 {
+		config.RateBurst = 1000
+	}
+	if config.RateQPS < 1 || config.RateQPS > 20000 || config.RateBurst < 1 || config.RateBurst > 50000 {
+		return nil, errors.New("DNS_RATE_QPS and DNS_RATE_BURST are outside permitted ranges")
 	}
 	allowed, err := parseAllowedCIDRs(config.AllowedCIDRs)
 	if err != nil {
@@ -129,7 +142,7 @@ func New(config Config) (*Server, error) {
 			return nil, fmt.Errorf("load local records: %w", err)
 		}
 	}
-	s := &Server{config: config, tlsConfig: upstreamTLS, permits: make(chan struct{}, config.MaxConcurrent), allowed: allowed}
+	s := &Server{config: config, tlsConfig: upstreamTLS, permits: make(chan struct{}, config.MaxConcurrent), allowed: allowed, queryBudget: newQueryBudget(config.RateQPS, config.RateBurst, time.Now())}
 	s.rules.Store(rules)
 	s.local.Store(local)
 	return s, nil
@@ -195,6 +208,13 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	s.queries.Add(1)
 	if !s.accepts(w.RemoteAddr()) {
 		s.refused.Add(1)
+		reply := new(dns.Msg)
+		reply.SetRcode(request, dns.RcodeRefused)
+		_ = w.WriteMsg(reply)
+		return
+	}
+	if !s.queryBudget.allow(time.Now()) {
+		s.rateLimited.Add(1)
 		reply := new(dns.Msg)
 		reply.SetRcode(request, dns.RcodeRefused)
 		_ = w.WriteMsg(reply)
@@ -301,6 +321,9 @@ func (s *Server) APIHandler() http.Handler {
 			"upstream_errors": s.upstreamErrors.Load(),
 			"overloaded":      s.overloaded.Load(),
 			"refused":         s.refused.Load(),
+			"rate_limited":    s.rateLimited.Load(),
+			"rate_qps":        s.config.RateQPS,
+			"rate_burst":      s.config.RateBurst,
 			"rules":           rules.Count(),
 			"local_records":   s.local.Load().Count(),
 			"local_answers":   s.localAnswers.Load(),

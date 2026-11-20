@@ -94,3 +94,9 @@ The parser rejects invalid IPs/names, unsupported types, files larger than 2 MiB
 ## Container image data-minimization
 
 The Go image build uses a source allowlist and copies only compilation inputs. It does not include private policy files or local-record overrides in image layers. The development Compose topology mounts both configuration files read-only at runtime; a standalone container started without the required rule file will fail closed. Never commit real internal hostnames or secrets into public source, and never publish an image containing private runtime configuration.
+
+## Process-wide privacy-preserving rate limit (development)
+
+A token-bucket query budget now caps the total number of DNS packets processed by a gateway instance. DNS_RATE_QPS defaults to 500 accepted queries per second, with DNS_RATE_BURST=1000 allowing short spikes. The permitted ranges are 1 to 20,000 requests per second and 1 to 50,000 burst tokens. Invalid negative or over-limit values stop startup; zero values resolve to the defaults. The budget runs after the client CIDR ACL but before policy matching and upstream forwarding. Exhausted capacity returns DNS REFUSED without contacting the upstream resolver and increments an aggregate rate_limited counter. The counter is visible in the authenticated API and web/Linux/Android clients.
+
+This is a global limit only: the implementation does not keep per-client IP identifiers, query histories or rolling personal profiles. A single abusive LAN client can still consume the shared budget, so proper router/firewall controls and per-source throttling require a separate privacy review. The mechanism is not a comprehensive amplification or DoS defense and is not a production capacity guarantee.
