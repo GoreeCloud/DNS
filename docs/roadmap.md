@@ -1,7 +1,7 @@
 # Priority development roadmap
 
 1. Continue CI acceptance and dependency review; independently compile and run Linux Qt 6.12 and the Android app in an appropriate isolated environment. Reproducible Go and web dependencies, Android builds, and synthetic Go DNS-wire tests exist in the foundation, but physical-device acceptance is still outstanding.
-2. Expand isolated end-to-end DNS-wire tests to EDNS, truncation, malformed packets and DNSSEC pass-through. Parser fuzz seeds, a concurrent upstream work budget and a synthetic DoT certificate test exist on the development branch; per-client rate limits and ACLs remain outstanding.
+2. Expand isolated end-to-end DNS-wire tests to EDNS, truncation, malformed packets and DNSSEC pass-through. Parser fuzz seeds, a concurrent upstream work budget, explicit client CIDR restrictions and a synthetic DoT certificate test exist; per-client rate limits and firewall acceptance remain outstanding.
 3. Review/up-pin third-party source, container images and build actions. Generate SBOM and audit licensing, vulnerabilities, access controls and reproducible builds.
 4. Extend the initial explicit allowlist exception syntax to complete validated filter policy, per-device rules, curated list updates, restoreable versioning, local privacy controls and a hardened HTTPS management API.
 5. Implement separate, documented, licensed API adapters for Technitium, AdGuard Home and Pi-hole rather than mixing incompatible licenses in one binary.

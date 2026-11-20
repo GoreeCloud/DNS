@@ -20,6 +20,13 @@ jobs:
           go mod tidy
           go mod verify
           git diff --exit-code -- go.mod go.sum
+      - name: Verify Go formatting
+        run: |
+          unformatted=$(gofmt -l cmd internal)
+          if [ -n "$unformatted" ]; then
+            printf 'Go source needs gofmt:\\n%s\\n' "$unformatted"
+            exit 1
+          fi
       - name: Test resolver
         run: go test -race ./...
       - name: Static vet

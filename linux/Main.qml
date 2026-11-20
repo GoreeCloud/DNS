@@ -20,6 +20,7 @@ ApplicationWindow {
     property string blockedCount: "—"
     property string failureCount: "—"
     property string overloadCount: "—"
+    property string refusedCount: "—"
     property string ruleCount: "—"
     property string exceptionCount: "—"
     property string upstreamMode: "—"
@@ -49,6 +50,7 @@ ApplicationWindow {
                     root.blockedCount = String(data.blocked)
                     root.failureCount = String(data.upstream_errors)
                     root.overloadCount = String(data.overloaded)
+                    root.refusedCount = String(data.refused)
                     root.ruleCount = String(data.rules)
                     root.exceptionCount = String(data.exceptions)
                     root.upstreamMode = String(data.upstream_mode)
@@ -158,6 +160,7 @@ ApplicationWindow {
                         { title: "Blocked", count: root.blockedCount },
                         { title: "Upstream errors", count: root.failureCount },
                         { title: "Overload refusals", count: root.overloadCount },
+                        { title: "Refused clients", count: root.refusedCount },
                         { title: "Rules", count: root.ruleCount },
                         { title: "Exceptions", count: root.exceptionCount }
                     ]

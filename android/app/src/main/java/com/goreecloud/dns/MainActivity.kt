@@ -45,6 +45,7 @@ private data class ResolverStatus(
     val rules: Long,
     val exceptions: Long,
     val overloaded: Long,
+    val refused: Long,
     val upstreamMode: String
 )
 
@@ -90,6 +91,7 @@ private suspend fun fetchStatus(base: String, token: String): ResolverStatus {
         data.getLong("rules"),
         data.getLong("exceptions"),
         data.getLong("overloaded"),
+        data.getLong("refused"),
         data.getString("upstream_mode")
     )
 }
@@ -159,6 +161,7 @@ private fun DNSConsole() {
             Metric("Blocked queries", data.blocked)
             Metric("Upstream failures", data.errors)
             Metric("Rejected overloads", data.overloaded)
+            Metric("Refused network clients", data.refused)
             Metric("Active rules", data.rules)
             Metric("Allow exceptions", data.exceptions)
             Text("Upstream transport: " + data.upstreamMode)

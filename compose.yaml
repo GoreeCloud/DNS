@@ -18,6 +18,9 @@ services:
       DNS_LISTEN_ADDR: "0.0.0.0:1053"
       DNS_API_ADDR: "0.0.0.0:8080"
       DNS_UPSTREAM_ADDR: "recursive:5335"
+      # Explicitly allow only loopback and RFC1918 Docker bridge clients;
+      # host DNS port remains loopback-only and is not a public resolver.
+      DNS_ALLOWED_CIDRS: "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
       DNS_RULES_FILE: "/app/config/rules.txt"
       DNS_API_TOKEN: "${DNS_API_TOKEN:?set a unique 16+ character token}"
     volumes:
