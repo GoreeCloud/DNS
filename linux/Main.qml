@@ -10,9 +10,13 @@ ApplicationWindow {
     minimumHeight: 470
     visible: true
     title: "GoreeCloud DNS"
+    color: "#0b111c"
 
     property string notice: "Connect to your self-hosted DNS instance."
-    property bool connected: false
+    property string queryCount: "—"
+    property string blockedCount: "—"
+    property string failureCount: "—"
+    property string ruleCount: "—"
 
     function refresh() {
         var address = baseUrl.text.trim().replace(/\/+$/, "")
@@ -28,27 +32,25 @@ ApplicationWindow {
             if (request.status === 200) {
                 try {
                     var data = JSON.parse(request.responseText)
-                    queries.text = String(data.queries)
-                    blocked.text = String(data.blocked)
-                    failures.text = String(data.upstream_errors)
-                    rules.text = String(data.rules)
-                    root.connected = true
-                    root.notice = "Connected. Statistics are aggregate counters since restart."
-                } catch (error) { root.notice = "Invalid server response."; root.connected = false }
-            } else { root.notice = "Connection failed (" + request.status + ")."; root.connected = false }
+                    root.queryCount = String(data.queries)
+                    root.blockedCount = String(data.blocked)
+                    root.failureCount = String(data.upstream_errors)
+                    root.ruleCount = String(data.rules)
+                    root.notice = "Connected. Aggregate counters since restart."
+                } catch (error) { root.notice = "Invalid server response." }
+            } else { root.notice = "Connection failed (" + request.status + ")." }
         }
         request.open("GET", address + "/api/v1/status")
         request.setRequestHeader("Authorization", "Bearer " + token.text)
         request.send()
     }
 
-    color: "#0b111c"
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 30
         spacing: 16
         Label { text: "GoreeCloud DNS"; font.pixelSize: 30; font.bold: true; color: "#f1f5fb" }
-        Label { text: "Linux native console · Qt Quick 6.12.0"; color: "#b2c0d4" }
+        Label { text: "Native Linux console · Qt Quick 6.12.0"; color: "#b2c0d4" }
         Label { text: "API endpoint"; color: "#dce8fa" }
         TextField { id: baseUrl; Layout.fillWidth: true; text: "http://127.0.0.1:8080"; placeholderText: "HTTPS URL" }
         Label { text: "API token (held in memory only)"; color: "#dce8fa" }
@@ -61,8 +63,14 @@ ApplicationWindow {
             columnSpacing: 18
             Layout.fillWidth: true
             Repeater {
-                model: [ "Queries", "Blocked", "Upstream errors", "Rules" ]
+                model: [
+                    { title: "Queries", count: root.queryCount },
+                    { title: "Blocked", count: root.blockedCount },
+                    { title: "Upstream errors", count: root.failureCount },
+                    { title: "Rules", count: root.ruleCount }
+                ]
                 delegate: Rectangle {
+                    required property var modelData
                     Layout.fillWidth: true
                     Layout.preferredHeight: 90
                     radius: 12
@@ -70,14 +78,12 @@ ApplicationWindow {
                     border.color: "#304461"
                     ColumnLayout {
                         anchors.centerIn: parent
-                        Label { text: modelData; color: "#b2c0d4" }
-                        Label { id: valueLabel; text: "—"; font.pixelSize: 26; font.bold: true; color: "#fff" }
+                        Label { text: modelData.title; color: "#b2c0d4" }
+                        Label { text: modelData.count; font.pixelSize: 26; font.bold: true; color: "#fff" }
                     }
                 }
             }
         }
-        // Separate hidden status labels keep state independent of repeater lifetime.
-        Item { visible: false; Label { id: queries; text: "0" }; Label { id: blocked; text: "0" }; Label { id: failures; text: "0" }; Label { id: rules; text: "0" } }
         Item { Layout.fillHeight: true }
         Label { text: "Local-first · No tracking · Requires an authorized DNS API"; color: "#8ba0bd" }
     }

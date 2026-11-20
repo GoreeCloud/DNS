@@ -1,0 +1,33 @@
+# Development topology only. Host ports bind to loopback.
+services:
+  recursive:
+    build:
+      context: .
+      dockerfile: deploy/unbound/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "5335/udp"
+      - "5335/tcp"
+    networks: [dns-backend]
+    security_opt: ["no-new-privileges:true"]
+  dns:
+    build: .
+    depends_on: [recursive]
+    restart: unless-stopped
+    environment:
+      DNS_LISTEN_ADDR: "0.0.0.0:1053"
+      DNS_API_ADDR: "0.0.0.0:8080"
+      DNS_UPSTREAM_ADDR: "recursive:5335"
+      DNS_RULES_FILE: "/app/config/rules.txt"
+      DNS_API_TOKEN: "${DNS_API_TOKEN:?set a unique 16+ character token}"
+    volumes:
+      - "./config/rules.txt:/app/config/rules.txt:ro"
+    ports:
+      - "127.0.0.1:1053:1053/udp"
+      - "127.0.0.1:1053:1053/tcp"
+      - "127.0.0.1:8080:8080/tcp"
+    networks: [dns-backend]
+    security_opt: ["no-new-privileges:true"]
+networks:
+  dns-backend:
+    internal: false
