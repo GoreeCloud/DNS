@@ -36,3 +36,7 @@ Outbound recursive traffic now strips client-provided EDNS options (including EC
 ## Management API HTTPS and listener guard
 
 The API fails closed when configured to bind outside localhost without a TLS certificate/private key or an explicit isolated-container opt-in. Direct HTTPS loads its certificate from owner-managed PEM files, checks private key file permissions, and requires TLS 1.2+. HTTP request header, read/write and idle timeouts are bounded. The opt-in DNS_API_ALLOW_INSECURE_REMOTE=true is a development escape hatch only for independently verified localhost-published container or trusted reverse-proxy topologies; it must never be treated as network encryption or a general permission to expose the API. External ingress, certificate management and role-based operator identities require separate staging and production acceptance.
+
+## Android management session minimization
+
+The Android client now rejects non-HTTPS or credential-bearing URL origins and requires the API origin to have no path/query/fragment before making a request. It continues to reject HTTP redirects and to rely on platform TLS certificate validation. The activity uses FLAG_SECURE to reduce token exposure through screen capture, and it resets Compose session state when backgrounded rather than retaining bearer input intentionally. These controls are source-level changes until they pass the relevant build and device evidence; they do not replace GoreeCloud Identity, token revocation, secure key storage or independent mobile security testing.

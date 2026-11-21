@@ -125,3 +125,9 @@ The HTTP server has header, read, write and idle timeouts and a bounded header s
 ## Temporary development build artifacts
 
 GitHub CI now retains four short-lived development-only artifacts for the Go Linux daemon, React static web bundle, Android debug APK and non-standalone Qt 6.12 Linux executable. Each includes checksums and exact source-commit context. Consult docs/development-artifacts.md for verification and platform limitations. These artifacts are not signed installers, Stable releases or production deployments.
+
+## Android device and session safeguards
+
+A previous debug APK was independently checksum-verified, temporarily installed, cold-launched on an authorized Android 17 ARM64 handset, and uninstalled without altering any DNS configuration. See docs/ANDROID-PHYSICAL-SMOKE.md. This is limited first-run evidence, not authentication, device accessibility or a release certification.
+
+The updated native Android Compose client validates only trusted HTTPS origins without embedded credentials, path, query or fragments before attaching its management bearer token. Unit tests reject deceptive URLs. The token-bearing screen now requests Android FLAG_SECURE screenshot protection and clears remembered session state when the activity moves to the background. Those newly implemented behaviors require their own exact-commit CI and physical test evidence before being marked physically accepted.
