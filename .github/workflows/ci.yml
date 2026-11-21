@@ -29,6 +29,13 @@ jobs:
           fi
       - name: Test resolver
         run: go test -race ./...
+      - name: Bounded DNS wire and policy fuzz regression
+        run: |
+          set -euo pipefail
+          go test ./internal/server -run '^$' -fuzz '^FuzzDNSWirePrivacy$' -fuzztime=100x -parallel=2
+          go test ./internal/server -run '^$' -fuzz '^FuzzUpstreamResponseIdentity$' -fuzztime=100x -parallel=2
+          go test ./internal/policy -run '^$' -fuzz '^FuzzPolicyFileParser$' -fuzztime=100x -parallel=2
+          go test ./internal/records -run '^$' -fuzz '^FuzzLocalRecordFileParser$' -fuzztime=100x -parallel=2
       - name: Static vet
         run: go vet ./...
       - name: Build development daemon with provenance
