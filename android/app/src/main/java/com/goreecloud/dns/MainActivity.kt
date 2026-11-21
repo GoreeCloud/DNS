@@ -1,6 +1,7 @@
 package com.goreecloud.dns
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,9 +35,22 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 class MainActivity : ComponentActivity() {
+    // The session is deliberately reset when the client moves to the
+    // background. Tokens are never intentionally saved to preferences/disk.
+    private val sessionVersion = mutableIntStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { GoreeCloudTheme { DNSConsole() } }
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        setContent {
+            val generation = sessionVersion.intValue
+            GoreeCloudTheme { key(generation) { DNSConsole() } }
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        sessionVersion.intValue += 1
     }
 }
 
@@ -57,11 +73,7 @@ private data class ResolverStatus(
 private suspend fun apiRequest(
     base: String, token: String, path: String, payload: JSONObject? = null, method: String = "GET"
 ): JSONObject = withContext(Dispatchers.IO) {
-    val server = base.trim().trimEnd('/')
-    val origin = URL(server)
-    require(origin.protocol == "https" && origin.host.isNotBlank() && origin.userInfo == null) {
-        "A trusted HTTPS endpoint without embedded credentials is required."
-    }
+    val server = EndpointPolicy.validate(base)
     require(token.length >= 16) { "Enter your API token." }
     val connection = (URL(server + path).openConnection() as HttpURLConnection)
     try {

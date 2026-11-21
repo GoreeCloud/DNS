@@ -131,3 +131,9 @@ GitHub CI now retains four short-lived development-only artifacts for the Go Lin
 The Qt Quick 6.12 Linux client now uses a first-party C++ QtNetwork bridge instead of QML XMLHttpRequest. It validates complete HTTP/HTTPS URLs, rejects embedded credentials or query/fragment/path segments, and only permits plaintext HTTP for actual loopback hosts. Redirects are disabled before bearer authorization headers are sent; TLS verification stays enabled. Responses have a 64 KiB ceiling, connections use a five-second timeout, and changing the endpoint or token cancels pending requests to prevent stale session results.
 
 The Linux binary supports a non-network endpoint validation preflight: goreecloud-dns-linux --validate-endpoint URL. This accepts trusted HTTPS origins or localhost HTTP and returns exit code 2 for rejected endpoints, without connecting or reading credentials. The CI test checks deceptive localhost-prefix URLs and other invalid cases. Native Qt build/headless acceptance is not evidence of correct operation on every physical Linux desktop.
+
+## Android device and session safeguards
+
+A previous debug APK was independently checksum-verified, temporarily installed, cold-launched on an authorized Android 17 ARM64 handset, and uninstalled without altering any DNS configuration. See docs/ANDROID-PHYSICAL-SMOKE.md. This is limited first-run evidence, not authentication, device accessibility or a release certification.
+
+The updated native Android Compose client validates only trusted HTTPS origins without embedded credentials, path, query or fragments before attaching its management bearer token. Unit tests reject deceptive URLs. The token-bearing screen now requests Android FLAG_SECURE screenshot protection and clears remembered session state when the activity moves to the background. Those newly implemented behaviors require their own exact-commit CI and physical test evidence before being marked physically accepted.
