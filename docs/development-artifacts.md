@@ -4,7 +4,7 @@ GoreeCloud DNS CI retains temporary, non-release build artifacts for seven days 
 
 | GitHub Actions artifact | Contains | Limitations |
 | --- | --- | --- |
-| dns-go-resolver-dev | Static Linux AMD64 DNS daemon and Go module/build info | Not a system service, signed package or deployed binary |
+| dns-go-resolver-dev | Static Linux AMD64 DNS daemon, encrypted-policy recovery CLI, and Go module/build info | Neither binary is a system service, signed package or deployed binary; the recovery CLI also requires an independently trusted age installation |
 | dns-react-web-dev | React static web dist files | Must be deployed behind trusted HTTPS with a protected same-origin API |
 | dns-android-debug-dev | Android debug APK | Debug-signed for temporary testing only; not a public release |
 | dns-linux-qt612-dev | Qt Quick 6.12.0 Linux executable | Dynamically linked; Qt libraries and platform plugins are not bundled |
