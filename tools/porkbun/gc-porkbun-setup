@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""Interactive Porkbun credential setup. Run locally in a private VPS TTY.
+
+The two keys are never passed through shell arguments or echoed to a log.
+"""
+import getpass
+import json
+import os
+import pathlib
+import re
+import stat
+import sys
+import tempfile
+
+confdir = pathlib.Path.home() / ".config/goreecloud"
+dest = confdir / "porkbun.json"
+if not sys.stdin.isatty():
+    print("Use a direct interactive VPS terminal/console; no keys entered through ChatGPT.", file=sys.stderr)
+    raise SystemExit(1)
+if not confdir.is_dir() or confdir.is_symlink() or confdir.stat().st_uid != os.getuid():
+    raise SystemExit("Configuration folder must already exist and belong to the user.")
+if stat.S_IMODE(confdir.stat().st_mode) != 0o700:
+    raise SystemExit("Expected private configuration directory (0700).")
+print("Porkbun: secure key installation for this VPS user. Keys will not be echoed.")
+key = getpass.getpass("Porkbun API key (pk1_...): ").strip()
+secret = getpass.getpass("Porkbun secret API key (sk1_...): ").strip()
+if not re.fullmatch(r"pk1_[A-Za-z0-9_-]+", key) or not re.fullmatch(r"sk1_[A-Za-z0-9_-]+", secret):
+    raise SystemExit("Unexpected key format; nothing stored.")
+if key.startswith("pk1_sb_") != secret.startswith("sk1_sb_"):
+    raise SystemExit("Sandbox/live key mismatch; nothing stored.")
+if dest.exists():
+    raise SystemExit("Credentials file already exists; no overwrite attempted.")
+fd, tmp = tempfile.mkstemp(prefix=".porkbun-", dir=str(confdir), text=True)
+try:
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        json.dump({"api_key": key, "secret_api_key": secret}, f, separators=(",", ":"))
+        f.write("\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, dest)
+    os.chmod(dest, 0o600)
+finally:
+    if os.path.exists(tmp):
+        os.unlink(tmp)
+del key, secret
+print("Stored protected Porkbun credentials at", dest)
+print("Next, run: gc-porkbun ping")
