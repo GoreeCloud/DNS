@@ -125,3 +125,9 @@ The HTTP server has header, read, write and idle timeouts and a bounded header s
 ## Temporary development build artifacts
 
 GitHub CI now retains four short-lived development-only artifacts for the Go Linux daemon, React static web bundle, Android debug APK and non-standalone Qt 6.12 Linux executable. Each includes checksums and exact source-commit context. Consult docs/development-artifacts.md for verification and platform limitations. These artifacts are not signed installers, Stable releases or production deployments.
+
+## Native Linux management transport safeguards
+
+The Qt Quick 6.12 Linux client now uses a first-party C++ QtNetwork bridge instead of QML XMLHttpRequest. It validates complete HTTP/HTTPS URLs, rejects embedded credentials or query/fragment/path segments, and only permits plaintext HTTP for actual loopback hosts. Redirects are disabled before bearer authorization headers are sent; TLS verification stays enabled. Responses have a 64 KiB ceiling, connections use a five-second timeout, and changing the endpoint or token cancels pending requests to prevent stale session results.
+
+The Linux binary supports a non-network endpoint validation preflight: goreecloud-dns-linux --validate-endpoint URL. This accepts trusted HTTPS origins or localhost HTTP and returns exit code 2 for rejected endpoints, without connecting or reading credentials. The CI test checks deceptive localhost-prefix URLs and other invalid cases. Native Qt build/headless acceptance is not evidence of correct operation on every physical Linux desktop.

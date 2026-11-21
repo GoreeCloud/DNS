@@ -30,99 +30,88 @@ ApplicationWindow {
     property string exceptionCount: "—"
     property string upstreamMode: "—"
 
+    // Networking is handled by native QtNetwork, not QML XMLHttpRequest.
+    // Validation rejects deceptive credentials-in-URL and plain HTTP to
+    // remote hosts, while requests refuse redirects and verify system TLS.
     function validAddress() {
-        var address = baseUrl.text.trim().replace(/\/+$/, "")
-        return address.startsWith("https://") ||
-            address.startsWith("http://127.0.0.1:") ||
-            address.startsWith("http://localhost:")
+        return dnsApi.endpointAllowed(baseUrl.text)
     }
 
     function refresh() {
-        if (!validAddress()) {
-            notice = "Use trusted HTTPS or localhost HTTP."
+        if (token.text.length < 16) {
+            notice = "Enter an API token before connecting."
             return
         }
-        if (token.text.length < 16) { notice = "Enter your API token."; return }
         notice = "Connecting…"
-        var address = baseUrl.text.trim().replace(/\/+$/, "")
-        var request = new XMLHttpRequest()
-        request.onreadystatechange = function() {
-            if (request.readyState !== XMLHttpRequest.DONE) return
-            if (request.status === 200) {
-                try {
-                    var data = JSON.parse(request.responseText)
-                    root.queryCount = String(data.queries)
-                    root.blockedCount = String(data.blocked)
-                    root.failureCount = String(data.upstream_errors)
-                    root.overloadCount = String(data.overloaded)
-                    root.refusedCount = String(data.refused)
-                    root.rateLimitedCount = String(data.rate_limited)
-                    root.rateQps = String(data.rate_qps)
-                    root.rateBurst = String(data.rate_burst)
-                    root.localRecordsCount = String(data.local_records)
-                    root.localAnswersCount = String(data.local_answers)
-                    root.ruleCount = String(data.rules)
-                    root.exceptionCount = String(data.exceptions)
-                    root.upstreamMode = String(data.upstream_mode)
-                    root.notice = "Connected · Aggregate counters since restart"
-                } catch (error) {
-                    root.notice = "Invalid server response."
-                }
-            } else {
-                root.notice = "Connection failed (" + request.status + ")."
-            }
-        }
-        request.open("GET", address + "/api/v1/status")
-        request.setRequestHeader("Authorization", "Bearer " + token.text)
-        request.send()
+        dnsApi.fetchStatus(baseUrl.text, token.text)
     }
 
     function reloadLocal() {
-        if (!validAddress() || token.text.length < 16) {
-            notice = "Connect before reloading local DNS records."
+        if (token.text.length < 16) {
+            notice = "Connect before reloading local records."
             return
         }
         notice = "Reloading validated local DNS records…"
-        var address = baseUrl.text.trim().replace(/\/+$/, "")
-        var request = new XMLHttpRequest()
-        request.onreadystatechange = function() {
-            if (request.readyState !== XMLHttpRequest.DONE) return
-            if (request.status === 200) {
-                root.refresh()
-            } else {
-                root.notice = "Local DNS reload rejected (" + request.status + ")."
-            }
-        }
-        request.open("POST", address + "/api/v1/local/reload")
-        request.setRequestHeader("Authorization", "Bearer " + token.text)
-        request.send()
+        dnsApi.reloadLocal(baseUrl.text, token.text)
     }
 
     function checkPolicy() {
-        if (!validAddress() || token.text.length < 16) {
+        if (token.text.length < 16) {
             policyNotice = "Connect before checking a domain."
             return
         }
-        if (domainInput.text.trim().length === 0 || domainInput.text.length > 253) {
-            policyNotice = "Enter a valid DNS domain."
-            return
-        }
-        var address = baseUrl.text.trim().replace(/\/+$/, "")
-        var request = new XMLHttpRequest()
         policyNotice = "Checking…"
-        request.onreadystatechange = function() {
-            if (request.readyState !== XMLHttpRequest.DONE) return
-            if (request.status === 200) {
-                try {
-                    var data = JSON.parse(request.responseText)
-                    root.policyNotice = String(data.name) + ": " + String(data.decision)
-                } catch (error) { root.policyNotice = "Invalid server response." }
-            } else { root.policyNotice = "Policy check rejected (" + request.status + ")." }
+        dnsApi.checkPolicy(baseUrl.text, token.text, domainInput.text)
+    }
+
+    function clearCounters() {
+        queryCount = "—"
+        blockedCount = "—"
+        failureCount = "—"
+        overloadCount = "—"
+        refusedCount = "—"
+        rateLimitedCount = "—"
+        rateQps = "—"
+        rateBurst = "—"
+        localRecordsCount = "—"
+        localAnswersCount = "—"
+        ruleCount = "—"
+        exceptionCount = "—"
+        upstreamMode = "—"
+    }
+
+    Connections {
+        target: dnsApi
+        function onStatusReady(data) {
+            root.queryCount = String(data.queries)
+            root.blockedCount = String(data.blocked)
+            root.failureCount = String(data.upstream_errors)
+            root.overloadCount = String(data.overloaded)
+            root.refusedCount = String(data.refused)
+            root.rateLimitedCount = String(data.rate_limited)
+            root.rateQps = String(data.rate_qps)
+            root.rateBurst = String(data.rate_burst)
+            root.localRecordsCount = String(data.local_records)
+            root.localAnswersCount = String(data.local_answers)
+            root.ruleCount = String(data.rules)
+            root.exceptionCount = String(data.exceptions)
+            root.upstreamMode = String(data.upstream_mode)
+            root.notice = "Connected · Aggregate counters since restart"
         }
-        request.open("POST", address + "/api/v1/policy/check")
-        request.setRequestHeader("Authorization", "Bearer " + token.text)
-        request.setRequestHeader("Content-Type", "application/json")
-        request.send(JSON.stringify({name: domainInput.text.trim()}))
+        function onPolicyReady(name, decision) {
+            root.policyNotice = name + ": " + decision
+        }
+        function onLocalReloaded() {
+            root.notice = "Local records reloaded. Refreshing status…"
+            root.refresh()
+        }
+        function onRequestFailed(action, reason) {
+            if (action === "policy") {
+                root.policyNotice = reason
+            } else {
+                root.notice = reason
+            }
+        }
     }
 
     ScrollView {
@@ -154,6 +143,11 @@ ApplicationWindow {
                 Layout.rightMargin: 30
                 text: "http://127.0.0.1:8080"
                 placeholderText: "Trusted HTTPS URL"
+                onTextChanged: {
+                    dnsApi.clearSession()
+                    root.clearCounters()
+                    root.notice = "Endpoint changed; connect to refresh."
+                }
             }
             Label { text: "API token (held in memory only)"; color: "#F2F4FB"; Layout.leftMargin: 30 }
             TextField {
@@ -163,6 +157,10 @@ ApplicationWindow {
                 Layout.rightMargin: 30
                 echoMode: TextInput.Password
                 placeholderText: "Paste your token"
+                onTextChanged: {
+                    dnsApi.clearSession()
+                    root.clearCounters()
+                }
             }
             Button {
                 text: "Refresh status"
@@ -256,6 +254,7 @@ ApplicationWindow {
             }
             Label {
                 text: root.policyNotice
+                textFormat: Text.PlainText
                 color: "#CED5E5"
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
@@ -266,10 +265,12 @@ ApplicationWindow {
                 text: "Disconnect and clear token"
                 Layout.leftMargin: 30
                 onClicked: {
+                    dnsApi.clearSession()
                     token.text = ""
                     domainInput.text = ""
+                    root.clearCounters()
                     root.policyNotice = ""
-                    root.notice = "Disconnected."
+                    root.notice = "Disconnected. Session and pending requests cleared."
                 }
             }
             Label {
