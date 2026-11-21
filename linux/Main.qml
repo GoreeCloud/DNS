@@ -30,6 +30,7 @@ ApplicationWindow {
     property string exceptionCount: "—"
     property string upstreamMode: "—"
     property string inboundDoT: "—"
+    property string inboundDoH: "—"
 
     // Networking is handled by native QtNetwork, not QML XMLHttpRequest.
     // Validation rejects deceptive credentials-in-URL and plain HTTP to
@@ -98,6 +99,7 @@ ApplicationWindow {
             root.exceptionCount = String(data.exceptions)
             root.upstreamMode = String(data.upstream_mode)
             root.inboundDoT = data.inbound_dot_enabled ? "enabled" : "disabled"
+            root.inboundDoH = data.inbound_doh_enabled ? "enabled" : "disabled"
             root.notice = "Connected · Aggregate counters since restart"
         }
         function onPolicyReady(name, decision) {
@@ -226,6 +228,11 @@ ApplicationWindow {
             }
             Label {
                 text: "Global query budget: " + root.rateQps + "/s, burst " + root.rateBurst
+                color: "#CED5E5"
+                Layout.leftMargin: 30
+            }
+            Label {
+                text: "Inbound DNS-over-HTTPS: " + root.inboundDoH
                 color: "#CED5E5"
                 Layout.leftMargin: 30
             }
