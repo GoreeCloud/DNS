@@ -18,6 +18,6 @@ React web, native Qt Quick Linux and native Compose Android clients access the s
 
 ## Limits
 
-The gateway does not serve authoritative zones, issue dynamic DNS changes, validate DNSSEC itself, provide DoH/DoQ listeners, inspect individual clients, or support complete ad-block rules. Outbound DoT verifies upstream certificate identity; the optional inbound DoT listener is default-disabled and uses owner-managed TLS certificates. Administrative API uses localhost HTTP by default, with optional direct HTTPS and explicit isolated proxy bridge controls. The Unbound service is an independent runtime dependency; its security and recursive validation configuration must be tested separately.
+The gateway does not serve authoritative zones, issue dynamic DNS changes, validate DNSSEC itself, provide DoQ listeners, inspect individual clients, or support complete ad-block rules. Outbound DoT verifies upstream certificate identity; the separate inbound DoT and RFC 8484 DoH listeners are default-disabled and use owner-managed TLS certificates. Administrative API uses localhost HTTP by default, with optional direct HTTPS and explicit isolated proxy bridge controls. The Unbound service is an independent runtime dependency; its security and recursive validation configuration must be tested separately.
 
 No DNS routing, router configuration, external ingress or host deployment is performed by this repository.

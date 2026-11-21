@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/netip"
@@ -26,6 +27,10 @@ import (
 type Config struct {
 	DNSListen              string
 	DoTListen              string // optional inbound TLS DNS listener; default disabled
+	DoHListen              string // optional inbound HTTPS DNS listener; default disabled
+	DoHAllowRemote         bool   // explicit remote binding opt-in, never public by default
+	DoHTLSCertFile         string // inbound HTTPS certificate
+	DoHTLSKeyFile          string // owner-only matching key
 	DoTAllowRemote         bool   // additional explicit opt-in for non-loopback DoT listeners
 	DoTTLSCertFile         string // inbound DoT certificate (operator-managed)
 	DoTTLSKeyFile          string // matching owner-only private key
@@ -51,6 +56,7 @@ type Server struct {
 	tlsConfig      *tls.Config
 	adminTLS       *tls.Config
 	dotTLS         *tls.Config
+	dohTLS         *tls.Config
 	rules          atomic.Pointer[policy.Rules]
 	local          atomic.Pointer[records.Store]
 	localAnswers   atomic.Uint64
@@ -125,6 +131,56 @@ func New(config Config) (*Server, error) {
 			MinVersion:   tls.VersionTLS12,
 			Certificates: []tls.Certificate{pair},
 			NextProtos:   []string{"dot"},
+		}
+	}
+	// Independent inbound RFC 8484 listener. There is deliberately no
+	// path where a partial HTTPS configuration silently falls back to HTTP.
+	if config.DoHListen == "" && (config.DoHTLSCertFile != "" ||
+		config.DoHTLSKeyFile != "" || config.DoHAllowRemote) {
+		return nil, errors.New("DNS_DOH_LISTEN_ADDR is required when DoH options are set")
+	}
+	var dohTLS *tls.Config
+	if config.DoHListen != "" {
+		host, port, err := net.SplitHostPort(config.DoHListen)
+		if err != nil {
+			return nil, fmt.Errorf("DNS_DOH_LISTEN_ADDR: %w", err)
+		}
+		number, err := strconv.Atoi(port)
+		if err != nil || number < 1 || number > 65535 {
+			return nil, errors.New("DNS_DOH_LISTEN_ADDR must have a valid TCP port")
+		}
+		ip := net.ParseIP(host)
+		loopback := host == "localhost" || (ip != nil && ip.IsLoopback())
+		if !loopback && !config.DoHAllowRemote {
+			return nil, errors.New("non-loopback inbound DoH requires DNS_DOH_ALLOW_REMOTE=true and scoped DNS_ALLOWED_CIDRS")
+		}
+		for _, occupied := range []string{config.DNSListen, config.DoTListen, config.APIListen} {
+			if occupied == "" {
+				continue
+			}
+			_, usedPort, _ := net.SplitHostPort(occupied)
+			if usedPort == port {
+				return nil, errors.New("DNS_DOH_LISTEN_ADDR conflicts with a configured DNS or API port")
+			}
+		}
+		if config.DoHTLSCertFile == "" || config.DoHTLSKeyFile == "" {
+			return nil, errors.New("DNS_DOH_TLS_CERT_FILE and DNS_DOH_TLS_KEY_FILE must be set together")
+		}
+		info, err := os.Stat(config.DoHTLSKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("DoH private key: %w", err)
+		}
+		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+			return nil, errors.New("DoH private key must be a regular owner-only file")
+		}
+		pair, err := tls.LoadX509KeyPair(config.DoHTLSCertFile, config.DoHTLSKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("load DoH TLS certificate: %w", err)
+		}
+		dohTLS = &tls.Config{
+			MinVersion:   tls.VersionTLS12,
+			Certificates: []tls.Certificate{pair},
+			NextProtos:   []string{"h2", "http/1.1"},
 		}
 	}
 	// HTTP administration must remain on loopback unless the operator
@@ -225,7 +281,7 @@ func New(config Config) (*Server, error) {
 			return nil, fmt.Errorf("load local records: %w", err)
 		}
 	}
-	s := &Server{config: config, tlsConfig: upstreamTLS, adminTLS: adminTLS, dotTLS: dotTLS, permits: make(chan struct{}, config.MaxConcurrent), allowed: allowed, queryBudget: newQueryBudget(config.RateQPS, config.RateBurst, time.Now())}
+	s := &Server{config: config, tlsConfig: upstreamTLS, adminTLS: adminTLS, dotTLS: dotTLS, dohTLS: dohTLS, permits: make(chan struct{}, config.MaxConcurrent), allowed: allowed, queryBudget: newQueryBudget(config.RateQPS, config.RateBurst, time.Now())}
 	s.rules.Store(rules)
 	s.local.Store(local)
 	return s, nil
@@ -459,6 +515,7 @@ func (s *Server) APIHandler() http.Handler {
 			"exceptions":          rules.AllowCount(),
 			"upstream_mode":       s.config.UpstreamMode,
 			"inbound_dot_enabled": s.dotTLS != nil,
+			"inbound_doh_enabled": s.dohTLS != nil,
 		})
 	}))
 	mux.HandleFunc("POST /api/v1/rules/reload", s.apiAuth(func(w http.ResponseWriter, r *http.Request) {
@@ -537,7 +594,7 @@ func (s *Server) writeJSON(w http.ResponseWriter, status int, payload any) {
 	_ = json.NewEncoder(w).Encode(payload)
 }
 
-// Run starts UDP, TCP, optional inbound DoT and the HTTP management listener,\n// then shuts them down together.
+// Run starts UDP, TCP, optional encrypted DoT and DoH, and the management API.
 func (s *Server) Run(ctx context.Context) error {
 	dnsHandler := dns.Handler(s)
 	udp := &dns.Server{Addr: s.config.DNSListen, Net: "udp", Handler: dnsHandler}
@@ -551,7 +608,7 @@ func (s *Server) Run(ctx context.Context) error {
 		IdleTimeout:       30 * time.Second,
 		MaxHeaderBytes:    1 << 16,
 	}
-	failures := make(chan error, 4)
+	failures := make(chan error, 5)
 	go func() { failures <- udp.ListenAndServe() }()
 	go func() { failures <- tcp.ListenAndServe() }()
 	var dot *dns.Server
@@ -561,6 +618,17 @@ func (s *Server) Run(ctx context.Context) error {
 			Handler: dnsHandler, ReadTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second,
 		}
 		go func() { failures <- dot.ListenAndServe() }()
+	}
+	var doh *http.Server
+	if s.dohTLS != nil {
+		doh = &http.Server{
+			Addr: s.config.DoHListen, Handler: s.DoHHandler(), TLSConfig: s.dohTLS,
+			ReadHeaderTimeout: 4 * time.Second, ReadTimeout: 6 * time.Second,
+			WriteTimeout: 6 * time.Second, IdleTimeout: 15 * time.Second,
+			MaxHeaderBytes: 8 << 10,
+			ErrorLog:       log.New(io.Discard, "", 0), // no client-IP TLS handshake logs
+		}
+		go func() { failures <- doh.ListenAndServeTLS("", "") }()
 	}
 	go func() {
 		if s.adminTLS != nil {
@@ -580,6 +648,9 @@ func (s *Server) Run(ctx context.Context) error {
 	_ = tcp.Shutdown()
 	if dot != nil {
 		_ = dot.Shutdown()
+	}
+	if doh != nil {
+		_ = doh.Shutdown(shutdownCtx)
 	}
 	_ = httpServer.Shutdown(shutdownCtx)
 	if errors.Is(err, http.ErrServerClosed) {
