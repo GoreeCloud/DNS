@@ -31,8 +31,21 @@ jobs:
         run: go test -race ./...
       - name: Static vet
         run: go vet ./...
-      - name: Build daemon
-        run: go build -o /tmp/goreecloud-dns ./cmd/dnsd
+      - name: Build development daemon with provenance
+        run: |
+          mkdir -p build/ci
+          CGO_ENABLED=0 go build -trimpath -o build/ci/goreecloud-dns-linux-amd64 ./cmd/dnsd
+          cd build/ci
+          sha256sum goreecloud-dns-linux-amd64 > SHA256SUMS
+          go version -m goreecloud-dns-linux-amd64 > build-info.txt
+          printf 'Development-only binary; not signed, released or deployed. Source: %s\n' "$GITHUB_SHA" > README.txt
+      - name: Retain development Go binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: dns-go-resolver-dev
+          path: build/ci/
+          retention-days: 7
+          if-no-files-found: error
   web:
     name: React web build
     runs-on: ubuntu-latest
@@ -48,6 +61,18 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Typecheck and build
         run: npm run build
+      - name: Record web build provenance
+        run: |
+          cd dist
+          sha256sum index.html > SHA256SUMS
+          printf 'Development-only web bundle; requires an independently protected HTTPS API. Source: %s\n' "$GITHUB_SHA" > README.txt
+      - name: Retain development web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: dns-react-web-dev
+          path: web/dist/
+          retention-days: 7
+          if-no-files-found: error
   android:
     name: Android Compose debug build
     runs-on: ubuntu-latest
@@ -69,6 +94,20 @@ jobs:
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
       - name: Compile Compose client
         run: gradle :app:assembleDebug --no-daemon
+      - name: Record debug APK provenance
+        run: |
+          mkdir -p build/ci
+          cp app/build/outputs/apk/debug/app-debug.apk build/ci/goreecloud-dns-debug.apk
+          cd build/ci
+          sha256sum goreecloud-dns-debug.apk > SHA256SUMS
+          printf 'Debug-signed APK for authorized temporary testing only. Source: %s\n' "$GITHUB_SHA" > README.txt
+      - name: Retain Android debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dns-android-debug-dev
+          path: android/build/ci/
+          retention-days: 7
+          if-no-files-found: error
 
   compose:
     name: Loopback container DNS smoke
@@ -153,3 +192,17 @@ jobs:
             echo "Unexpected native-client exit status $result"
             exit 1
           fi
+      - name: Record dynamically linked Linux build provenance
+        run: |
+          mkdir -p build/ci/linux
+          cp "$RUNNER_TEMP/gc-dns-qt-build/goreecloud-dns-linux" build/ci/linux/
+          cd build/ci/linux
+          sha256sum goreecloud-dns-linux > SHA256SUMS
+          printf 'Development-only, dynamically linked Qt Quick 6.12.0 executable; Qt is not bundled. Source: %s\n' "$GITHUB_SHA" > README.txt
+      - name: Retain native Linux development binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: dns-linux-qt612-dev
+          path: build/ci/linux/
+          retention-days: 7
+          if-no-files-found: error
