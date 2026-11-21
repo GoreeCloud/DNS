@@ -109,3 +109,7 @@ Upstream recursive requests now remove all client-supplied DNS additional record
 Upstream responses must be DNS replies to exactly the original question, matching query ID, opcode, case-insensitive name, type and class. Invalid or still-truncated upstream responses are rejected as SERVFAIL and counted as upstream errors. UDP truncation triggers a TCP retry on the same configured upstream, where supported. Incoming DNS UPDATE and non-IN class questions receive NOTIMP instead of being forwarded.
 
 The isolated tests cover synthetic EDNS Client Subnet/Cookie stripping, DNSSEC DO pass-through, UDP truncation plus TCP retry, unrelated response rejection, and non-query opcode handling. Do not interpret these tests as production DNSSEC validation, a complete RFC compliance test suite, client anonymity, or a production-grade authoritative DNS service.
+
+## Optional Porkbun registrar API tooling
+
+The repository now includes an independently operated, **development-stage** Python Porkbun CLI under [`tools/porkbun/`](tools/porkbun/README.md). It performs scoped account/domain reads, private zone backups, DNS safety preflights, non-mutating restore previews, and guarded `dryRun` previews. The executable is not used by the DNS resolver service or native clients, is not a public management API, and has not performed a production DNS mutation. Unit tests run without credentials. See [security guidance](SECURITY.md) before enabling it on a host.

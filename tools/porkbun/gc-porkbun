@@ -1,0 +1,344 @@
+#!/usr/bin/env python3
+"""GoreeCloud Porkbun CLI: secret-safe reads and explicitly gated DNS writes.
+
+No third-party dependencies. Only Porkbun's official v3 HTTPS API is used.
+"""
+import argparse
+import collections
+import datetime as dt
+import getpass
+import hashlib
+import json
+import os
+import pathlib
+import re
+import stat
+import sys
+import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
+
+DOMAIN = "goreecloud.com"
+BASE = "https://api.porkbun.com/api/json/v3"
+CONFIG = pathlib.Path.home() / ".config/goreecloud/porkbun.json"
+BACKUPS = pathlib.Path.home() / ".local/share/goreecloud/porkbun/backups"
+
+
+def fail(message):
+    print("ERROR:", message, file=sys.stderr)
+    raise SystemExit(1)
+
+
+def secured_directory(p):
+    p.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if p.is_symlink() or p.stat().st_uid != os.getuid():
+        fail("Unsafe ownership or symlink at " + str(p))
+    if stat.S_IMODE(p.stat().st_mode) != 0o700:
+        fail("Expected directory permissions 0700 at " + str(p))
+
+
+def load_credentials():
+    if CONFIG.is_symlink() or not CONFIG.is_file():
+        fail("Credentials not installed; run gc-porkbun-setup in a private VPS terminal.")
+    s = CONFIG.stat()
+    if s.st_uid != os.getuid() or stat.S_IMODE(s.st_mode) != 0o600:
+        fail("Credentials file must be owned by this user with mode 0600.")
+    obj = json.loads(CONFIG.read_text(encoding="utf-8"))
+    public = obj.get("api_key")
+    private = obj.get("secret_api_key")
+    if not isinstance(public, str) or not public.startswith("pk1_"):
+        fail("Stored public key format is invalid.")
+    if not isinstance(private, str) or not private.startswith("sk1_"):
+        fail("Stored secret key format is invalid.")
+    return public, private
+
+
+class RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """Never forward credential-bearing headers to a redirect target."""
+
+    def redirect_request(self, request, fp, code, msg, headers, newurl):
+        fail("Porkbun API sent an unexpected redirect; refusing to forward credentials.")
+
+
+def api(path, method="GET", payload=None, idempotency=None):
+    key, secret = load_credentials()
+    h = {"X-API-Key": key, "X-Secret-API-Key": secret, "Accept": "application/json"}
+    if payload is not None:
+        h["Content-Type"] = "application/json"
+    if idempotency is not None:
+        h["Idempotency-Key"] = idempotency
+    data = None if payload is None else json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(BASE + path, headers=h, data=data, method=method)
+    opener = urllib.request.build_opener(RefuseRedirects())
+    try:
+        with opener.open(request, timeout=25) as response:
+            obj = json.load(response)
+            if not isinstance(obj, dict):
+                fail("Unexpected API response type")
+            return obj
+    except urllib.error.HTTPError as exc:
+        try:
+            err = json.load(exc)
+        except Exception:
+            err = {}
+        # Do not expose account metadata, raw responses, keys or record contents.
+        code = str(err.get("code", "UNKNOWN_ERROR"))[:80]
+        fail(f"Porkbun HTTP {exc.code}, code={code}")
+    except urllib.error.URLError:
+        fail("Unable to reach Porkbun API securely.")
+    except TimeoutError:
+        fail("Porkbun API request timed out.")
+
+
+def ok(response, action):
+    if response.get("status") != "SUCCESS":
+        fail(action + " was not successful, code=" + str(response.get("code", "UNKNOWN"))[:80])
+    return response
+
+
+def get_zone():
+    return ok(api("/dns/retrieve/" + DOMAIN), "DNS zone read")
+
+
+def record_count(zone):
+    records = zone.get("records")
+    return len(records) if isinstance(records, list) else 0
+
+
+def zone_fingerprint(zone):
+    """Stable fingerprint of the stored records; no TXT values are printed."""
+    records = zone.get("records")
+    if not isinstance(records, list):
+        fail("Missing DNS records array; refusing to proceed.")
+    canonical = json.dumps(
+        sorted(records, key=lambda item: str(item.get("id", ""))),
+        sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def preflight():
+    """Fail closed on failed/delegated-away zone safety checks."""
+    result = ok(api("/dns/preflight/" + DOMAIN), "DNS preflight")
+    checks = result.get("checks")
+    if not isinstance(checks, list) or not checks:
+        fail("Porkbun returned no DNS preflight checks.")
+    if result.get("safe") is not True or result.get("blockers") or result.get("warnings"):
+        fail("Porkbun DNS preflight reports an unsafe state; no write will be attempted.")
+    if any(not isinstance(c, dict) or c.get("ok") is not True for c in checks):
+        fail("At least one Porkbun DNS preflight check failed.")
+    if not any(c.get("id") == "nameservers-ours" and c.get("ok") is True for c in checks):
+        fail("Nameserver ownership could not be confirmed.")
+    return result
+
+
+def backup_zone(zone):
+    secured_directory(BACKUPS.parent)
+    secured_directory(BACKUPS)
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    path = BACKUPS / ("porkbun-" + DOMAIN + "-" + stamp + "-" + uuid.uuid4().hex[:8] + ".json")
+    data = json.dumps({"domain": DOMAIN, "collected_utc": stamp, "response": zone}, indent=2)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as out:
+            out.write(data + "\n")
+    except Exception:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+        raise
+    print("Private DNS backup:", path)
+    return path
+
+
+def load_payload(path, action):
+    if action == "delete":
+        return {}
+    if path is None:
+        fail("create/edit requires --payload path to a local JSON file")
+    p = pathlib.Path(path).expanduser()
+    if p.is_symlink() or not p.is_file() or p.stat().st_uid != os.getuid():
+        fail("Payload file must be owned by the current user and not a symlink")
+    raw = p.read_text(encoding="utf-8")
+    if len(raw) > 50000:
+        fail("Payload too large")
+    obj = json.loads(raw)
+    if not isinstance(obj, dict):
+        fail("Payload must be a JSON object")
+    if any(k in obj for k in ("apikey", "secretapikey", "api_key", "secret_api_key")):
+        fail("Credentials must never be placed in a DNS payload.")
+    if any(k in obj for k in ("dryRun", "dryrun")):
+        fail("Do not include dryRun in payload; the CLI controls it.")
+    return obj
+
+
+def dns_path(action, record_id):
+    base = "/dns/" + action + "/" + DOMAIN
+    if action in ("edit", "delete"):
+        if not record_id or not re.fullmatch(r"[0-9]+", record_id):
+            fail("An existing numeric --record-id is required for edit/delete")
+        return base + "/" + record_id
+    return base
+
+
+def safe_dns_write(args):
+    path = dns_path(args.action, args.record_id)
+    body = load_payload(args.payload, args.action)
+    preflight()
+    zone = get_zone()
+    original_hash = zone_fingerprint(zone)
+    if args.action in ("edit", "delete"):
+        matching = [r for r in zone["records"] if str(r.get("id")) == args.record_id]
+        if len(matching) != 1 or matching[0].get("type") in ("SOA", "NS"):
+            fail("Target DNS record missing, duplicated, or protected; no write attempted.")
+    print("Current DNS record count:", record_count(zone))
+    preview = dict(body)
+    preview["dryRun"] = True
+    dry = ok(api(path, "POST", preview), "DNS dry-run")
+    print("Dry-run status:", dry.get("status"))
+    print("Would succeed:", dry.get("wouldSucceed", "not reported"))
+    if dry.get("warnings"):
+        fail("Porkbun dry-run returned warnings; no write permitted.")
+    if dry.get("wouldSucceed") is not True:
+        fail("Porkbun did not explicitly report wouldSucceed=true; no write attempted.")
+    after_preview = get_zone()
+    if zone_fingerprint(after_preview) != original_hash:
+        fail("DNS zone changed during dry run; no further writes allowed.")
+    if args.mode == "preview":
+        print("PREVIEW ONLY. Stored DNS zone verified unchanged.")
+        return
+    # Read-only validation must complete before the human confirmation.
+    backup_zone(zone)
+    print("WARNING: This will modify LIVE DNS for", DOMAIN, "action:", args.action)
+    print("It can disrupt web, VPN, certificates or email services.")
+    if not sys.stdin.isatty():
+        fail("Explicit interactive confirmation from an authorized VPS terminal is required.")
+    try:
+        response = input("Type APPLY goreecloud.com to proceed: ")
+    except (EOFError, KeyboardInterrupt):
+        fail("Non-interactive session or cancelled. No write attempted.")
+    if response != "APPLY " + DOMAIN:
+        fail("Approval phrase mismatch. No write attempted.")
+    preflight()
+    current = get_zone()
+    if zone_fingerprint(current) != original_hash:
+        fail("DNS zone changed since review; refusing stale write.")
+    result = ok(api(path, "POST", body, idempotency=str(uuid.uuid4())), "DNS write")
+    print("Write API status:", result.get("status"))
+    if result.get("warnings"):
+        print("WARNING: Porkbun returned DNS write warnings; inspect DNS delegation immediately.")
+    updated = get_zone()
+    print("Readback DNS record count:", record_count(updated))
+    print("Review exact intended change and public authoritative DNS before declaring success.")
+
+
+def restore_preview(snapshot_id=None):
+    """Validate a historical restore WITHOUT ever sending a live restore."""
+    preflight()
+    baseline = get_zone()
+    baseline_hash = zone_fingerprint(baseline)
+    history = ok(api("/dns/history/" + DOMAIN), "DNS history")
+    points = history.get("restorePoints")
+    if not isinstance(points, list) or not points:
+        fail("No Porkbun DNS restore points available.")
+    selected = points[0] if snapshot_id is None else next(
+        (p for p in points if str(p.get("id", p.get("snapshotId"))) == snapshot_id), None
+    )
+    if not isinstance(selected, dict):
+        fail("Requested restore point was not found in provider history.")
+    chosen_id = str(selected.get("id", selected.get("snapshotId", "")))
+    if not chosen_id.isdigit():
+        fail("Invalid restore point ID.")
+    diff = ok(api("/dns/diff/" + DOMAIN + "/" + chosen_id), "DNS restore diff")
+    print("History-to-live difference: missing:", len(diff.get("missing") or []),
+          "extra:", len(diff.get("extra") or []),
+          "inSync:", diff.get("inSync"))
+    dry = ok(api("/dns/restore/" + DOMAIN, "POST",
+                 {"snapshotId": int(chosen_id), "prune": False, "dryRun": True}),
+             "DNS restore dry run")
+    if dry.get("warnings") or dry.get("failed"):
+        fail("Porkbun reported restore preview warnings/failures; no write attempted.")
+    print("Restore preview: would add:", dry.get("restored"),
+          "would remove:", dry.get("removed"))
+    if dry.get("removed") != 0:
+        fail("Non-pruning restore preview unexpectedly proposes removing records.")
+    if zone_fingerprint(get_zone()) != baseline_hash:
+        fail("DNS zone changed during restore preview; no further operation permitted.")
+    print("PREVIEW ONLY: live DNS verified unchanged.")
+
+
+def main():
+    p = argparse.ArgumentParser(description="Controlled Porkbun v3 access for " + DOMAIN)
+    subs = p.add_subparsers(dest="command", required=True)
+    for name in ("status", "ping", "domain", "nameservers", "dns-summary",
+                 "dns-preflight", "dns-history", "dns-backup"):
+        subs.add_parser(name)
+    s = subs.add_parser("dns-restore-preview", help="Non-mutating provider restore-point preview")
+    s.add_argument("--snapshot-id", help="Optional numeric restore point; newest is default")
+    for mode in ("preview", "apply"):
+        s = subs.add_parser("dns-" + mode, help="DNS write " + mode + " (apply requires typed approval)")
+        s.add_argument("action", choices=["create", "edit", "delete"])
+        s.add_argument("--record-id", help="Required for edit/delete")
+        s.add_argument("--payload", help="JSON request body for create/edit; not credentials")
+    args = p.parse_args()
+    if args.command == "status":
+        print("Configuration path:", CONFIG)
+        print("Credentials present:", CONFIG.exists() and not CONFIG.is_symlink())
+        print("Target:", DOMAIN)
+        return
+    if args.command == "ping":
+        a = ok(api("/ping"), "Authentication")
+        print("Porkbun authentication:", a["status"])
+        print("Granted scopes:", ",".join(a.get("scopes", [])) if isinstance(a.get("scopes"), list) else "not supplied")
+        print("Caller IP:", a.get("yourIp", "not supplied"))
+        print("Account returned:", bool(a.get("account")))
+    elif args.command == "domain":
+        a = ok(api("/domain/get/" + DOMAIN), "Domain read")
+        print("Porkbun domain:", DOMAIN)
+        print("Status:", a.get("status"))
+        print("Domain response available:", bool(a))
+        print("Details intentionally suppressed; avoid logging contact and registrant information.")
+    elif args.command == "dns-summary":
+        a = get_zone()
+        records = a.get("records") or []
+        counts = collections.Counter(str(x.get("type", "?")) for x in records if isinstance(x, dict))
+        print("Domain:", DOMAIN)
+        print("DNS record count:", len(records))
+        for typ, num in sorted(counts.items()):
+            print(typ + ":", num)
+        print("DNS content intentionally suppressed.")
+    elif args.command == "nameservers":
+        result = ok(api("/domain/getNs/" + DOMAIN), "Nameserver read")
+        nameservers = result.get("ns")
+        if not isinstance(nameservers, list):
+            fail("Invalid nameserver response.")
+        print("Registry nameservers:", ", ".join(sorted(str(x) for x in nameservers)))
+    elif args.command == "dns-preflight":
+        result = preflight()
+        print("DNS preflight:", result.get("status"), "safe:", result.get("safe"))
+        for check in result["checks"]:
+            print("check:", check.get("id"), "ok:", check.get("ok"))
+    elif args.command == "dns-history":
+        result = ok(api("/dns/history/" + DOMAIN), "DNS history")
+        points = result.get("restorePoints")
+        if not isinstance(points, list):
+            fail("Porkbun did not provide DNS restore points.")
+        print("Historical DNS restore points:", len(points))
+        print("No restore operation was performed.")
+    elif args.command == "dns-backup":
+        backup_zone(get_zone())
+    elif args.command == "dns-restore-preview":
+        restore_preview(args.snapshot_id)
+    elif args.command.startswith("dns-"):
+        args.mode = args.command[4:]
+        safe_dns_write(args)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
+        fail("Invalid local JSON or API data; no changes performed.")
