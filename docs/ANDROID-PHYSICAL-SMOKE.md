@@ -16,6 +16,16 @@ Status: **partial physical-device acceptance; not a release**.
 
 **Scope:** This verifies only package integrity, temporary install, cold launch, foreground activity and clean removal for that older artifact. It does not prove authenticated API function, live HTTPS, UI accessibility, background credential handling, key rotation, offline failure recovery, Android 17 release compatibility or production readiness.
 
-## Next version safeguards
+## Follow-up Android 17 handset smoke — November 21, 2026
 
-The development branch adds strict URI-origin parsing, debug unit tests for deceptive URLs, screenshot protection for the token-bearing UI, and session-state reset on backgrounding. These modifications **were not in the APK described above**. Rebuild and revalidate the exact new source before claiming their behavior on a physical device.
+- **Source:** PR #11 exact feature head `00464a5c3cf8e56d8890b8018a3fc11d1b28a9c8` (subsequently squash-merged to protected main as `971e4b2f56d7fa842f0d9a610099ed64fde2abbe`). GitHub Actions run `44877484744` was successful, including Android JVM endpoint-validation tests. The artifact sidecar records a synthesized pull-request checkout SHA `90a953028da6755b0de57d9960858b5ffe516e50`, **not** the feature head or squash commit.
+- **Debug APK:** verified the supplied SHA256SUMS; SHA-256 `8ff6dd48ce97d5b0abf037b43f2193c6830d448839c09757c15b0484eb7ac8d9`. APK Signature Scheme v2, package `com.goreecloud.dns`, version 0.1.0, minimum SDK 26, target SDK 35; no release or app-store signing.
+- **Physical handset:** same authorized Android 17 ARM64 USB-connected device, with no preexisting GoreeCloud DNS installation at preflight.
+- **Actions verified:** temporary install, successful cold launch with MainActivity foreground, Home/background transition, Activity resume, application process existence and complete uninstall. Final package-path query found no installed copy.
+- **Privacy/safety:** no real DNS API credentials entered; no query-history, VPN profile, router, resolver settings or production network changed. All test APKs were staged only in temporary RAM-backed storage because the laptop root filesystem was nearly full.
+- **Important limits:** the Android FLAG_SECURE intent was implemented in source and APK, but the read-only window dump was not conclusive proof that screenshots were blocked. No API credentials were present, so background token erasure, TLS failure paths, token revocation and remote API session handling were **not** exercised on the handset. UI accessibility, full lifecycle testing and Android release-signing remain open.
+
+## Current source safeguards and remaining acceptance
+
+Current Kotlin source includes strict HTTPS-origin parsing and JVM unit tests for deceptive URLs, screenshot protection requested on the token-bearing activity, and Compose session state reset on backgrounding. The follow-up test above verifies **install, cold-launch, background, resume and removal** on a physical handset, not the effectiveness of screenshot prevention or private-token lifecycle controls. Production security and release acceptance require dedicated negative-path, authenticated session, accessibility and rollback testing under an explicitly authorized isolated target.
+
