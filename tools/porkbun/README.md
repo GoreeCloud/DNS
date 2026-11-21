@@ -10,7 +10,7 @@ Requirements: Python 3.11+ with the standard library, an authorized Linux user a
 
 Deploy the script as `~/.local/bin/gc-porkbun`, mode `0700`, from a reviewed pinned commit. Store credentials in `~/.config/goreecloud/porkbun.json`, accessible only to the running user (`0600`); its containing directory must be `0700`. The JSON object uses two secret fields: `api_key` and `secret_api_key`. Provision them **directly into the secure host** through a trusted terminal or secret manager; never stage a credential file in this repository. Credential installation should avoid shell history and process arguments. The host's credential file is intentionally excluded from version control.
 
-Host-side setup, authentication and operational command references are maintained in the private GoreeCloud Drive registry at `GoreeCloud/CLI Commands/Third-Party/Porkbun.md` (the canonical command reference). For secret setup, the separate host-local `gc-porkbun-setup` helper is currently available on the verified VPS but has **not** been imported into this repository; reconcile its tested source separately before relying on a fresh installation.
+Host-side setup, authentication and operational command references are maintained in the private GoreeCloud Drive registry at `GoreeCloud/CLI Commands/Third-Party/Porkbun.md` (the canonical command reference). Use the bundled `gc-porkbun-setup` helper from a private interactive terminal on the trusted host; it refuses non-TTY input and stores the key pair as an owner-only file. The setup helper is now maintained alongside the CLI, but a fresh-host installation has not been acceptance-tested.
 
 ## Commands
 
@@ -44,7 +44,7 @@ Current restrictions: the script intentionally targets one domain, supports only
 
 ```sh
 python3 -m unittest discover -s tools/porkbun -p 'test_gc_porkbun.py' -v
-python3 -m py_compile tools/porkbun/gc-porkbun
+python3 -m py_compile tools/porkbun/gc-porkbun tools/porkbun/gc-porkbun-setup
 ```
 
 The offline unit tests stub all API requests and do not touch credentials or live DNS. The public CI workflow uses those tests. Live validation on November 20, 2026 confirmed Porkbun `SUCCESS`, `read,dns,domains` token scopes, verified Porkbun nameserver delegation, six successful DNS-preflight checks, a non-mutating DNS-create dry run with `wouldSucceed: true`, 29 unchanged DNS records, and available zone history. No live mutation, sandbox credential testing, or restore procedure was completed.
