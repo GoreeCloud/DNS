@@ -127,5 +127,32 @@ class PorkbunCliTests(unittest.TestCase):
             api.assert_not_called()
 
 
+    def test_restore_preview_is_nonmutating(self):
+        def fake_api(path, method="GET", payload=None):
+            if path.startswith("/dns/history/"):
+                return {"status": "SUCCESS", "restorePoints": [{"id": 55}]}
+            if path.startswith("/dns/diff/"):
+                return {"status": "SUCCESS", "missing": [], "extra": [{"type": "A"}], "inSync": False}
+            if path.startswith("/dns/restore/"):
+                self.assertEqual(method, "POST")
+                self.assertEqual(payload, {"snapshotId": 55, "prune": False, "dryRun": True})
+                return {"status": "SUCCESS", "restored": 0, "removed": 0, "failed": [], "warnings": []}
+            raise AssertionError("Unexpected provider path: " + path)
+        with mock.patch.object(client, "preflight", return_value=self.good_preflight), \
+             mock.patch.object(client, "get_zone", side_effect=[self.zone, self.zone]) as get_zone, \
+             mock.patch.object(client, "api", side_effect=fake_api) as api:
+            client.restore_preview()
+            self.assertEqual(api.call_count, 3)
+            self.assertEqual(get_zone.call_count, 2)
+
+    def test_restore_preview_rejects_unknown_snapshot(self):
+        with mock.patch.object(client, "preflight", return_value=self.good_preflight), \
+             mock.patch.object(client, "get_zone", return_value=self.zone), \
+             mock.patch.object(client, "api", return_value={"status": "SUCCESS", "restorePoints": [{"id": 12}]}) as api:
+            with self.assertRaises(SystemExit):
+                client.restore_preview("999")
+            self.assertEqual(api.call_count, 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
