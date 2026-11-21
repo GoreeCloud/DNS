@@ -113,3 +113,7 @@ The isolated tests cover synthetic EDNS Client Subnet/Cookie stripping, DNSSEC D
 ## Optional Porkbun registrar API tooling
 
 The repository now includes an independently operated, **development-stage** Python Porkbun CLI under [`tools/porkbun/`](tools/porkbun/README.md). It performs scoped account/domain reads, private zone backups, DNS safety preflights, non-mutating restore previews, and guarded `dryRun` previews. The executable is not used by the DNS resolver service or native clients, is not a public management API, and has not performed a production DNS mutation. Unit tests run without credentials. See [security guidance](SECURITY.md) before enabling it on a host.
+
+## Temporary development build artifacts
+
+GitHub CI now retains four short-lived development-only artifacts for the Go Linux daemon, React static web bundle, Android debug APK and non-standalone Qt 6.12 Linux executable. Each includes checksums and exact source-commit context. Consult docs/development-artifacts.md for verification and platform limitations. These artifacts are not signed installers, Stable releases or production deployments.
