@@ -114,6 +114,14 @@ The isolated tests cover synthetic EDNS Client Subnet/Cookie stripping, DNSSEC D
 
 The repository now includes an independently operated, **development-stage** Python Porkbun CLI under [`tools/porkbun/`](tools/porkbun/README.md). It performs scoped account/domain reads, private zone backups, DNS safety preflights, non-mutating restore previews, and guarded `dryRun` previews. The executable is not used by the DNS resolver service or native clients, is not a public management API, and has not performed a production DNS mutation. Unit tests run without credentials. See [security guidance](SECURITY.md) before enabling it on a host.
 
+## Management API transport security (development)
+
+By default, the administrative HTTP listener only accepts a loopback bind address. A non-loopback bind is rejected on startup unless the administrator supplies a matching TLS certificate and key, or explicitly opts into a restricted development proxy/bridge. For direct HTTPS, configure DNS_API_TLS_CERT_FILE and DNS_API_TLS_KEY_FILE together. The private key must be a regular file readable by the daemon owner and inaccessible to group/other users. TLS 1.2 or later is required. Clients must independently verify server identity.
+
+For a development-only container bridge with a separately protected loopback host mapping, DNS_API_ALLOW_INSECURE_REMOTE=true permits an HTTP bind to the container interface. The bundled Docker Compose example uses that exception specifically because it exposes the management port on 127.0.0.1 of the host. This exception does not create a secure remote management service and must NEVER be used for direct Internet/LAN exposure without a trusted HTTPS proxy, firewall rules, and operator-controlled credentials.
+
+The HTTP server has header, read, write and idle timeouts and a bounded header size. The static bearer-token authentication remains a development-only management method; token rotation, Identity integration, MFA, audit policy and production TLS lifecycle are not yet implemented. No running host or router DNS listener was changed as part of these source changes.
+
 ## Temporary development build artifacts
 
 GitHub CI now retains four short-lived development-only artifacts for the Go Linux daemon, React static web bundle, Android debug APK and non-standalone Qt 6.12 Linux executable. Each includes checksums and exact source-commit context. Consult docs/development-artifacts.md for verification and platform limitations. These artifacts are not signed installers, Stable releases or production deployments.
