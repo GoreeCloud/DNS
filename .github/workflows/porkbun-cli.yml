@@ -33,7 +33,7 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          for file in (Path('tools/porkbun/gc-porkbun'), Path('tools/porkbun/test_gc_porkbun.py')):
+          for file in (Path('tools/porkbun/gc-porkbun'), Path('tools/porkbun/gc-porkbun-setup'), Path('tools/porkbun/test_gc_porkbun.py')):
               compile(file.read_text(), str(file), 'exec')
           PY
       - name: Run offline unit tests
