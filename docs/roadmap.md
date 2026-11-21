@@ -6,7 +6,7 @@
 4. Extend the initial explicit allowlist exception syntax and strict local A/AAAA/CNAME override loading into complete validated filter policy, safe record management, per-device rules, curated list updates, restoreable versioning, local privacy controls and a fully verified management TLS lifecycle and Identity integration (an opt-in direct TLS listener and default-loopback API bind guard now exist).
 5. Implement separate, documented, licensed API adapters for Technitium, AdGuard Home and Pi-hole rather than mixing incompatible licenses in one binary.
 6. Add opt-in GoreeCloud Mesh integration, Identity authentication, Wardveil security controls, GoreeShield privacy policy and official GoreeCloud UI design tokens.
-7. Expand the new default-disabled inbound DoT listener through real-device compatibility, certificate renewal and firewall acceptance; then design inbound DoH/DoQ, DNSSEC management, authoritative zones and DHCP according to verified needs and test coverage. Outbound DoT already verifies upstream server identity, but full production DNS security remains open.
+7. Expand the new default-disabled inbound DoT listener through real-device compatibility, certificate renewal and firewall acceptance; verify the new default-disabled RFC 8484 inbound DoH listener on independent clients and approved TLS/network scopes, then design DoQ, DNSSEC management, authoritative zones and DHCP according to verified needs and test coverage. Outbound DoT already verifies upstream server identity, but full production DNS security remains open.
 8. Package signed Linux and Android releases, validate hardware behavior, and stage a controlled LAN deployment with backups and rollback.
 
 All items are proposed future work, not active running capabilities.

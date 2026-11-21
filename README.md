@@ -14,7 +14,7 @@ Open-source, self-hosted DNS filtering and resolver management, currently an **e
 - Separately packaged Unbound recursive resolver configuration for Docker Compose local development.
 - Unit tests, CI workflows, build manifests, Dockerfiles, security documentation and third-party attribution.
 
-The gateway currently retains no per-client addresses or query history. Supported filtering is domain suffix blocking and explicit allow exceptions, not full AdGuard syntax or regex. It has optional certificate-verified DNS-over-TLS upstream forwarding and a separately configured **inbound** DNS-over-TLS listener, disabled by default. It does not provide inbound DoH or DoQ. Authoritative zone administration, DNSSEC validation in the gateway, DHCP, advanced ACLs, scheduled blocklist updates and production-grade filtering remain unimplemented.
+The gateway currently retains no per-client addresses or query history. Supported filtering is domain suffix blocking and explicit allow exceptions, not full AdGuard syntax or regex. It has optional certificate-verified DNS-over-TLS upstream forwarding and a separately configured **inbound** DNS-over-TLS listener, disabled by default. It also has a separate default-disabled RFC 8484 DNS-over-HTTPS listener; it does not provide DoQ. Authoritative zone administration, DNSSEC validation in the gateway, DHCP, advanced ACLs, scheduled blocklist updates and production-grade filtering remain unimplemented.
 
 ## Local development
 
@@ -151,6 +151,23 @@ An invalid or missing certificate/key, group/world-readable private key, port co
 Only explicitly configured non-loopback binds are permitted with DNS_DOT_ALLOW_REMOTE=true. This opt-in does not override DNS_ALLOWED_CIDRS: the existing DNS client ACL still defaults to loopback-only, and operators must separately scope the exact trusted LAN networks. Apply firewall rules and owner-controlled TLS identity before any LAN access. No Compose host port, VPS listener, router DNS, or firewall change is made by this source feature. Never publish this preview resolver on a public network or use it for production cutover.
 
 Synthetic loopback tests exercise valid certificate trust, real encrypted A-record queries, filtered NXDOMAIN replies, invalid/unsafe configuration rejection, and client rejection of an untrusted certificate. They do not establish broad DNSSEC/DoH compatibility, certificate renewal, signed releases, real-device secure DNS settings, operational capacity or production readiness.
+
+
+## Optional inbound DNS-over-HTTPS (DoH) developer preview
+
+The first-party gateway now supports RFC 8484 wire-format GET and POST at the exact path /dns-query. The HTTPS listener is completely separate from the management API and **disabled unless all required configuration values are supplied**. It inherits DNS client CIDR ACLs, global query budget, filter policy, atomic local overrides, and the existing upstream resolver. It never accepts plain HTTP, exposes a JSON DNS API, honors spoofable X-Forwarded-For headers, stores per-client query history, sets CORS wildcard headers, or redirects clients.
+
+Configure only on an independently scoped **loopback test** listener first:
+
+- DNS_DOH_LISTEN_ADDR=127.0.0.1:8443
+- DNS_DOH_TLS_CERT_FILE=/absolute/owner/managed/server.crt
+- DNS_DOH_TLS_KEY_FILE=/absolute/owner-only/server.key
+
+A DoH listener without a matching TLS certificate/key, a private key accessible to other users, or any listener/port conflict is rejected during startup. TLS 1.2+ is required, with HTTP/2 and HTTP/1.1 ALPN. DNS_DOH_ALLOW_REMOTE=true is a second explicit requirement for a non-loopback bind. It **does not** override DNS_ALLOWED_CIDRS (which defaults to loopback only). A self-signed synthetic certificate is suitable only for isolated tests with its CA explicitly trusted by the client. A public hostname requires independently validated certificate lifecycle and service identity.
+
+The HTTP interface accepts application/dns-message binary POST bodies or a single unpadded base64url-encoded dns query parameter for GET, with a 4096-byte wire-query limit and bounded response, header and connection timeouts. Requests use no-store and nosniff headers. Unsupported media types, plaintext requests and malformed DNS wire are rejected. Source ACLs are evaluated from the actual TCP peer and not proxy headers. Neither Caddy/Gateway nor the development Compose topology publishes this listener automatically.
+
+Synthetic tests exercise actual local TLS GET/POST DNS messages, blocked responses, identity verification failures, spoofed proxy headers, oversized/malformed messages and incomplete configuration. **Not accepted for production:** HTTPS certificate rotation, browser integration, mobile Private DNS auto-configuration, encrypted DNS discovery, DNSSEC signature validation, external availability, rate-limit capacity acceptance, DoH compatibility matrices and secure public ingress. Source changes do not modify the VPS or clients' DNS settings.
 
 ## DNS wire, policy and local-record parser fuzzing
 
