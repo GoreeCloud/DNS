@@ -22,6 +22,7 @@ gc-porkbun nameservers
 gc-porkbun dns-summary
 gc-porkbun dns-preflight
 gc-porkbun dns-history
+gc-porkbun dns-restore-preview  # validates a non-pruning provider restore; changes nothing
 gc-porkbun dns-backup
 ```
 
@@ -47,8 +48,12 @@ python3 -m unittest discover -s tools/porkbun -p 'test_gc_porkbun.py' -v
 python3 -m py_compile tools/porkbun/gc-porkbun tools/porkbun/gc-porkbun-setup
 ```
 
-The offline unit tests stub all API requests and do not touch credentials or live DNS. The public CI workflow uses those tests. Live validation on November 20, 2026 confirmed Porkbun `SUCCESS`, `read,dns,domains` token scopes, verified Porkbun nameserver delegation, six successful DNS-preflight checks, a non-mutating DNS-create dry run with `wouldSucceed: true`, 29 unchanged DNS records, and available zone history. No live mutation, sandbox credential testing, or restore procedure was completed.
+The offline unit tests stub all API requests and do not touch credentials or live DNS. The public CI workflow uses those tests. Live validation on November 20, 2026 confirmed Porkbun `SUCCESS`, `read,dns,domains` token scopes, verified Porkbun nameserver delegation, six successful DNS-preflight checks, a non-mutating DNS-create dry run with `wouldSucceed: true`, 29 unchanged DNS records, and available zone history. No live mutation, sandbox credential testing, or live restore procedure was completed.
 
 ## Sources and licensing
 
 This folder contains original GoreeCloud Python source under the repository's MIT license; no third-party Python packages or copied Porkbun source are included. Porkbun is an external API provider, not an embedded component. Refer to its [official API reference](https://porkbun.com/llms/dns) and [security guidance](https://kb.porkbun.com/article/308-ai-agent-safety) before changing commands or permissions.
+
+### Recovery preview (never applies a restore)
+
+`gc-porkbun dns-restore-preview` reads the provider's newest historical snapshot, compares its records against the current zone, submits a `POST /dns/restore` call with `dryRun: true` and `prune: false`, and verifies that all live records remain unchanged. To inspect another provider-advertised restore point, supply `--snapshot-id <numeric-id>`. The restore preview has no implementation path for a real restore. Its validated live run found no missing records, three extra live records, and a proposed add/remove count of zero. **This is not a full restore rehearsal or recovery certification.**
