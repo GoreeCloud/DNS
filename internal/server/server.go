@@ -24,24 +24,28 @@ import (
 )
 
 type Config struct {
-	DNSListen         string
-	APIListen         string
-	Upstream          string
-	UpstreamMode      string // auto (client transport), tcp, or tls
-	UpstreamTLSName   string // TLS certificate identity; required for tls mode
-	UpstreamTLSCAFile string // optional custom PEM CA file for tls mode
-	APIToken          string
-	RulesFile         string
-	LocalRecordsFile  string // optional, strictly validated static overrides
-	MaxConcurrent     int    // defaults to 128, bounds simultaneous upstream queries
-	AllowedCIDRs      string // explicit DNS client CIDRs; loopback-only by default
-	RateQPS           int    // process-wide query rate; 500/sec by default
-	RateBurst         int    // process-wide request burst; 1000 by default
+	DNSListen              string
+	APIListen              string
+	APITLSCertFile         string // optional authenticated HTTPS management certificate
+	APITLSKeyFile          string // optional private key (owner-only permissions)
+	APIAllowInsecureRemote bool   // explicit container/proxy HTTP development exception
+	Upstream               string
+	UpstreamMode           string // auto (client transport), tcp, or tls
+	UpstreamTLSName        string // TLS certificate identity; required for tls mode
+	UpstreamTLSCAFile      string // optional custom PEM CA file for tls mode
+	APIToken               string
+	RulesFile              string
+	LocalRecordsFile       string // optional, strictly validated static overrides
+	MaxConcurrent          int    // defaults to 128, bounds simultaneous upstream queries
+	AllowedCIDRs           string // explicit DNS client CIDRs; loopback-only by default
+	RateQPS                int    // process-wide query rate; 500/sec by default
+	RateBurst              int    // process-wide request burst; 1000 by default
 }
 
 type Server struct {
 	config         Config
 	tlsConfig      *tls.Config
+	adminTLS       *tls.Config
 	rules          atomic.Pointer[policy.Rules]
 	local          atomic.Pointer[records.Store]
 	localAnswers   atomic.Uint64
@@ -73,6 +77,36 @@ func New(config Config) (*Server, error) {
 		if err != nil || n < 1 || n > 65535 {
 			return nil, fmt.Errorf("%s: port must be between 1 and 65535", name)
 		}
+	}
+	// HTTP administration must remain on loopback unless the operator
+	// explicitly supplies TLS or authorizes a separately isolated reverse-
+	// proxy/container bridge. A wildcard listener must never be accidental.
+	apiHost, _, _ := net.SplitHostPort(config.APIListen)
+	apiIP := net.ParseIP(apiHost)
+	loopbackAPI := apiHost == "localhost" || (apiIP != nil && apiIP.IsLoopback())
+	if (config.APITLSCertFile == "") != (config.APITLSKeyFile == "") {
+		return nil, errors.New("DNS_API_TLS_CERT_FILE and DNS_API_TLS_KEY_FILE must be configured together")
+	}
+	var adminTLS *tls.Config
+	if config.APITLSKeyFile != "" {
+		info, err := os.Stat(config.APITLSKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("admin TLS private key: %w", err)
+		}
+		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+			return nil, errors.New("admin TLS private key must be a regular owner-only file")
+		}
+		pair, err := tls.LoadX509KeyPair(config.APITLSCertFile, config.APITLSKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("load admin TLS certificate: %w", err)
+		}
+		adminTLS = &tls.Config{
+			MinVersion:   tls.VersionTLS12,
+			Certificates: []tls.Certificate{pair},
+		}
+	}
+	if !loopbackAPI && adminTLS == nil && !config.APIAllowInsecureRemote {
+		return nil, errors.New("non-loopback management API requires HTTPS; for isolated development use DNS_API_ALLOW_INSECURE_REMOTE=true")
 	}
 	if config.RulesFile == "" {
 		return nil, errors.New("rules file is required")
@@ -142,7 +176,7 @@ func New(config Config) (*Server, error) {
 			return nil, fmt.Errorf("load local records: %w", err)
 		}
 	}
-	s := &Server{config: config, tlsConfig: upstreamTLS, permits: make(chan struct{}, config.MaxConcurrent), allowed: allowed, queryBudget: newQueryBudget(config.RateQPS, config.RateBurst, time.Now())}
+	s := &Server{config: config, tlsConfig: upstreamTLS, adminTLS: adminTLS, permits: make(chan struct{}, config.MaxConcurrent), allowed: allowed, queryBudget: newQueryBudget(config.RateQPS, config.RateBurst, time.Now())}
 	s.rules.Store(rules)
 	s.local.Store(local)
 	return s, nil
@@ -460,12 +494,23 @@ func (s *Server) Run(ctx context.Context) error {
 	tcp := &dns.Server{Addr: s.config.DNSListen, Net: "tcp", Handler: dnsHandler}
 	httpServer := &http.Server{
 		Addr: s.config.APIListen, Handler: s.APIHandler(),
-		ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 1 << 16,
+		TLSConfig:         s.adminTLS,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       30 * time.Second,
+		MaxHeaderBytes:    1 << 16,
 	}
 	failures := make(chan error, 3)
 	go func() { failures <- udp.ListenAndServe() }()
 	go func() { failures <- tcp.ListenAndServe() }()
-	go func() { failures <- httpServer.ListenAndServe() }()
+	go func() {
+		if s.adminTLS != nil {
+			failures <- httpServer.ListenAndServeTLS("", "")
+		} else {
+			failures <- httpServer.ListenAndServe()
+		}
+	}()
 	var err error
 	select {
 	case <-ctx.Done():
