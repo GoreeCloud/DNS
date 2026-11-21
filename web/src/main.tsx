@@ -18,6 +18,7 @@ type Status = {
   local_answers: number;
   exceptions: number;
   upstream_mode: string;
+  inbound_dot_enabled: boolean;
   rules: number;
 };
 
@@ -144,6 +145,7 @@ function Console() {
           {decision && <p role="status" className="policy-result"><strong>{decision.name}</strong>: {decision.decision === 'blocked' ? 'blocked by local policy' : decision.decision === 'allowed' ? 'explicitly allowed by exception' : 'no local rule matched (forward upstream)'}</p>}
         </section>
         <p className="transport-note">Global DNS query budget: {status.rate_qps.toLocaleString()}/s, burst {status.rate_burst.toLocaleString()}.</p>
+        <p className="transport-note">Inbound DNS-over-TLS: {status.inbound_dot_enabled ? "Enabled for configured client networks" : "Disabled"}</p>
         <p className="transport-note">Upstream transport: {status.upstream_mode === 'tls' ? 'DNS-over-TLS' : status.upstream_mode === 'tcp' ? 'DNS over TCP' : 'Client-appropriate UDP/TCP'}</p>
         <button className="disconnect" type="button" onClick={() => {setToken(''); setStatus(null); setDomain(''); setDecision(null); setError(''); setMessage('');}}>Disconnect and forget token</button>
       </> : <section className="empty"><h2>Ready when you are</h2><p>Connect locally or through a trusted HTTPS reverse proxy to see live aggregate metrics. Query histories and client IP addresses are not retained.</p></section>}

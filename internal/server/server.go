@@ -25,6 +25,10 @@ import (
 
 type Config struct {
 	DNSListen              string
+	DoTListen              string // optional inbound TLS DNS listener; default disabled
+	DoTAllowRemote         bool   // additional explicit opt-in for non-loopback DoT listeners
+	DoTTLSCertFile         string // inbound DoT certificate (operator-managed)
+	DoTTLSKeyFile          string // matching owner-only private key
 	APIListen              string
 	APITLSCertFile         string // optional authenticated HTTPS management certificate
 	APITLSKeyFile          string // optional private key (owner-only permissions)
@@ -46,6 +50,7 @@ type Server struct {
 	config         Config
 	tlsConfig      *tls.Config
 	adminTLS       *tls.Config
+	dotTLS         *tls.Config
 	rules          atomic.Pointer[policy.Rules]
 	local          atomic.Pointer[records.Store]
 	localAnswers   atomic.Uint64
@@ -76,6 +81,50 @@ func New(config Config) (*Server, error) {
 		n, err := strconv.Atoi(port)
 		if err != nil || n < 1 || n > 65535 {
 			return nil, fmt.Errorf("%s: port must be between 1 and 65535", name)
+		}
+	}
+	// Inbound DNS-over-TLS is disabled by default and must be configured
+	// with an explicit listener and matching owner-only TLS identity.
+	if config.DoTListen == "" && (config.DoTTLSCertFile != "" || config.DoTTLSKeyFile != "") {
+		return nil, errors.New("DNS_DOT_LISTEN_ADDR required with DoT certificate settings")
+	}
+	var dotTLS *tls.Config
+	if config.DoTListen != "" {
+		_, port, err := net.SplitHostPort(config.DoTListen)
+		if err != nil {
+			return nil, fmt.Errorf("DNS_DOT_LISTEN_ADDR: %w", err)
+		}
+		n, err := strconv.Atoi(port)
+		if err != nil || n < 1 || n > 65535 {
+			return nil, errors.New("DNS_DOT_LISTEN_ADDR port must be between 1 and 65535")
+		}
+		host, _, _ := net.SplitHostPort(config.DoTListen)
+		ip := net.ParseIP(host)
+		isLoopback := host == "localhost" || (ip != nil && ip.IsLoopback())
+		if !isLoopback && !config.DoTAllowRemote {
+			return nil, errors.New("non-loopback inbound DoT requires DNS_DOT_ALLOW_REMOTE=true and a scoped DNS_ALLOWED_CIDRS")
+		}
+		if config.DoTListen == config.DNSListen || config.DoTListen == config.APIListen {
+			return nil, errors.New("DNS_DOT_LISTEN_ADDR conflicts with another service listener")
+		}
+		if config.DoTTLSCertFile == "" || config.DoTTLSKeyFile == "" {
+			return nil, errors.New("DNS_DOT_TLS_CERT_FILE and DNS_DOT_TLS_KEY_FILE required together")
+		}
+		info, err := os.Stat(config.DoTTLSKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("DoT private key: %w", err)
+		}
+		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+			return nil, errors.New("DoT private key must be a regular owner-only file")
+		}
+		pair, err := tls.LoadX509KeyPair(config.DoTTLSCertFile, config.DoTTLSKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("load DoT certificate: %w", err)
+		}
+		dotTLS = &tls.Config{
+			MinVersion:   tls.VersionTLS12,
+			Certificates: []tls.Certificate{pair},
+			NextProtos:   []string{"dot"},
 		}
 	}
 	// HTTP administration must remain on loopback unless the operator
@@ -176,7 +225,7 @@ func New(config Config) (*Server, error) {
 			return nil, fmt.Errorf("load local records: %w", err)
 		}
 	}
-	s := &Server{config: config, tlsConfig: upstreamTLS, adminTLS: adminTLS, permits: make(chan struct{}, config.MaxConcurrent), allowed: allowed, queryBudget: newQueryBudget(config.RateQPS, config.RateBurst, time.Now())}
+	s := &Server{config: config, tlsConfig: upstreamTLS, adminTLS: adminTLS, dotTLS: dotTLS, permits: make(chan struct{}, config.MaxConcurrent), allowed: allowed, queryBudget: newQueryBudget(config.RateQPS, config.RateBurst, time.Now())}
 	s.rules.Store(rules)
 	s.local.Store(local)
 	return s, nil
@@ -394,21 +443,22 @@ func (s *Server) APIHandler() http.Handler {
 	mux.HandleFunc("GET /api/v1/status", s.apiAuth(func(w http.ResponseWriter, _ *http.Request) {
 		rules := s.rules.Load()
 		s.writeJSON(w, http.StatusOK, map[string]any{
-			"product":         "GoreeCloud DNS",
-			"state":           "running",
-			"queries":         s.queries.Load(),
-			"blocked":         s.blocked.Load(),
-			"upstream_errors": s.upstreamErrors.Load(),
-			"overloaded":      s.overloaded.Load(),
-			"refused":         s.refused.Load(),
-			"rate_limited":    s.rateLimited.Load(),
-			"rate_qps":        s.config.RateQPS,
-			"rate_burst":      s.config.RateBurst,
-			"rules":           rules.Count(),
-			"local_records":   s.local.Load().Count(),
-			"local_answers":   s.localAnswers.Load(),
-			"exceptions":      rules.AllowCount(),
-			"upstream_mode":   s.config.UpstreamMode,
+			"product":             "GoreeCloud DNS",
+			"state":               "running",
+			"queries":             s.queries.Load(),
+			"blocked":             s.blocked.Load(),
+			"upstream_errors":     s.upstreamErrors.Load(),
+			"overloaded":          s.overloaded.Load(),
+			"refused":             s.refused.Load(),
+			"rate_limited":        s.rateLimited.Load(),
+			"rate_qps":            s.config.RateQPS,
+			"rate_burst":          s.config.RateBurst,
+			"rules":               rules.Count(),
+			"local_records":       s.local.Load().Count(),
+			"local_answers":       s.localAnswers.Load(),
+			"exceptions":          rules.AllowCount(),
+			"upstream_mode":       s.config.UpstreamMode,
+			"inbound_dot_enabled": s.dotTLS != nil,
 		})
 	}))
 	mux.HandleFunc("POST /api/v1/rules/reload", s.apiAuth(func(w http.ResponseWriter, r *http.Request) {
@@ -487,7 +537,7 @@ func (s *Server) writeJSON(w http.ResponseWriter, status int, payload any) {
 	_ = json.NewEncoder(w).Encode(payload)
 }
 
-// Run starts separate UDP, TCP and HTTP services and shuts them down together.
+// Run starts UDP, TCP, optional inbound DoT and the HTTP management listener,\n// then shuts them down together.
 func (s *Server) Run(ctx context.Context) error {
 	dnsHandler := dns.Handler(s)
 	udp := &dns.Server{Addr: s.config.DNSListen, Net: "udp", Handler: dnsHandler}
@@ -501,9 +551,17 @@ func (s *Server) Run(ctx context.Context) error {
 		IdleTimeout:       30 * time.Second,
 		MaxHeaderBytes:    1 << 16,
 	}
-	failures := make(chan error, 3)
+	failures := make(chan error, 4)
 	go func() { failures <- udp.ListenAndServe() }()
 	go func() { failures <- tcp.ListenAndServe() }()
+	var dot *dns.Server
+	if s.dotTLS != nil {
+		dot = &dns.Server{
+			Addr: s.config.DoTListen, Net: "tcp-tls", TLSConfig: s.dotTLS,
+			Handler: dnsHandler, ReadTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second,
+		}
+		go func() { failures <- dot.ListenAndServe() }()
+	}
 	go func() {
 		if s.adminTLS != nil {
 			failures <- httpServer.ListenAndServeTLS("", "")
@@ -520,6 +578,9 @@ func (s *Server) Run(ctx context.Context) error {
 	defer cancel()
 	_ = udp.Shutdown()
 	_ = tcp.Shutdown()
+	if dot != nil {
+		_ = dot.Shutdown()
+	}
 	_ = httpServer.Shutdown(shutdownCtx)
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil

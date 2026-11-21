@@ -37,8 +37,16 @@ func main() {
 	if err != nil {
 		log.Fatal("DNS_API_ALLOW_INSECURE_REMOTE must be true or false")
 	}
+	allowRemoteDoT, err := strconv.ParseBool(env("DNS_DOT_ALLOW_REMOTE", "false"))
+	if err != nil {
+		log.Fatal("DNS_DOT_ALLOW_REMOTE must be true or false")
+	}
 	cfg := server.Config{
 		DNSListen:              env("DNS_LISTEN_ADDR", "127.0.0.1:1053"),
+		DoTListen:              os.Getenv("DNS_DOT_LISTEN_ADDR"),
+		DoTAllowRemote:         allowRemoteDoT,
+		DoTTLSCertFile:         os.Getenv("DNS_DOT_TLS_CERT_FILE"),
+		DoTTLSKeyFile:          os.Getenv("DNS_DOT_TLS_KEY_FILE"),
 		APIListen:              env("DNS_API_ADDR", "127.0.0.1:8080"),
 		APITLSCertFile:         os.Getenv("DNS_API_TLS_CERT_FILE"),
 		APITLSKeyFile:          os.Getenv("DNS_API_TLS_KEY_FILE"),

@@ -29,6 +29,7 @@ ApplicationWindow {
     property string ruleCount: "—"
     property string exceptionCount: "—"
     property string upstreamMode: "—"
+    property string inboundDoT: "—"
 
     // Networking is handled by native QtNetwork, not QML XMLHttpRequest.
     // Validation rejects deceptive credentials-in-URL and plain HTTP to
@@ -96,6 +97,7 @@ ApplicationWindow {
             root.ruleCount = String(data.rules)
             root.exceptionCount = String(data.exceptions)
             root.upstreamMode = String(data.upstream_mode)
+            root.inboundDoT = data.inbound_dot_enabled ? "enabled" : "disabled"
             root.notice = "Connected · Aggregate counters since restart"
         }
         function onPolicyReady(name, decision) {
@@ -224,6 +226,11 @@ ApplicationWindow {
             }
             Label {
                 text: "Global query budget: " + root.rateQps + "/s, burst " + root.rateBurst
+                color: "#CED5E5"
+                Layout.leftMargin: 30
+            }
+            Label {
+                text: "Inbound DNS-over-TLS: " + root.inboundDoT
                 color: "#CED5E5"
                 Layout.leftMargin: 30
             }
