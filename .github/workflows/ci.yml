@@ -166,6 +166,21 @@ jobs:
             -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/Qt/6.12.0/gcc_64" \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build "$RUNNER_TEMP/gc-dns-qt-build" --parallel 2
+      - name: Verify strict native Linux endpoint policy
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QSG_RHI_BACKEND: software
+        run: |
+          bin="$RUNNER_TEMP/gc-dns-qt-build/goreecloud-dns-linux"
+          "$bin" --validate-endpoint "https://dns.example.org"
+          "$bin" --validate-endpoint "http://127.0.0.1:8080"
+          "$bin" --validate-endpoint "http://localhost:8080"
+          "$bin" --validate-endpoint "http://[::1]:8080"
+          if "$bin" --validate-endpoint "http://127.0.0.1:8080@attacker.example"; then exit 1; fi
+          if "$bin" --validate-endpoint "http://example.org"; then exit 1; fi
+          if "$bin" --validate-endpoint "https://user:pass@dns.example.org"; then exit 1; fi
+          if "$bin" --validate-endpoint "https://dns.example.org/evil?query=1"; then exit 1; fi
+          if "$bin" --validate-endpoint "file:///etc/passwd"; then exit 1; fi
       - name: Check native launch without a display
         env:
           QT_QPA_PLATFORM: offscreen
