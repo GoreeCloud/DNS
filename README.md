@@ -172,3 +172,9 @@ Synthetic tests exercise actual local TLS GET/POST DNS messages, blocked respons
 ## Recipient-encrypted policy backup and staged recovery
 
 The first-party cmd/dns-config companion tool uses independently installed age X25519 encryption for bounded backups of only rules.txt and local-records.txt. It validates with the same Go source parsers, includes integrity checks, rejects overwrites, and never writes a plaintext backup. Restores default to dry-run; an explicit apply flag creates a NEW, private staging directory without modifying running DNS or system resolver settings. This intentionally excludes API tokens and TLS keys. See docs/config-recovery.md for commands and the unaccepted full-disaster-recovery requirements.
+
+## DNS wire, policy and local-record parser fuzzing
+
+The Go test suite now includes corpus-seeded, bounded native fuzz targets for DNS message privacy minimization, upstream question/ID binding, filter policy text parsing and local A/AAAA/CNAME text parsing. Synthetic tests additionally check that EDNS client subnet/cookie options are removed before the resolver contacts its upstream and that the DNSSEC DO/AD wire bits can pass through a mocked recursive resolver. All fuzz targets are local-only, do not perform external DNS queries, and do not retain real client data.
+
+The protected Go CI job runs the race-enabled tests and 100 additional fuzz iterations per target; this is a continuous **regression smoke**, not exhaustive fuzzing or proof of secure handling of every valid DNS message. The synthetic AD/RRSIG and DO wire behavior is **not DNSSEC cryptographic signature verification**: the gateway delegates actual DNSSEC validation to its separately operated Unbound backend.

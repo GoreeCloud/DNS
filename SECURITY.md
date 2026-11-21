@@ -56,3 +56,7 @@ Inbound DoH binds only with explicit HTTPS TLS credentials. A remote listener re
 ## Encrypted policy recovery trust boundary
 
 The new dns-config CLI requires independently trusted age recipient encryption, validates each allowlisted policy/local-record file with the daemon's parsers, and writes only owner-only encrypted archives without overwriting existing backups. Decryption requires a separate owner-only private identity file. The dry-run is the default; an explicit apply action stages verified policy only in a new empty private directory, never on active service paths. Tests cover ciphertext tampering and accidental overwrite. Key escrow, production-volume restore, complete backup replication, application rollback, service continuity and TLS credentials remain separate acceptance gates.
+
+## Protocol fuzz and DNSSEC validation limitations
+
+Native fuzz harnesses stress the DNS wire parser, minimum-data upstream message construction, upstream question identity comparison, filter-list parser and local-record parser using synthetic, bounded inputs. Short CI fuzz runs can catch regressions, but cannot certify parser safety or DNSSEC trust. A mocked upstream AD (authenticated data) bit can be forwarded unchanged by the gateway; actual DNSSEC chain validation and its trust anchors belong to a separately tested Unbound runtime. Production acceptance requires DNSSEC positive/negative cases, malicious backend testing, high-throughput load and independently tested resolver failure behavior.
