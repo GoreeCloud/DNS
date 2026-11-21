@@ -169,6 +169,10 @@ The HTTP interface accepts application/dns-message binary POST bodies or a singl
 
 Synthetic tests exercise actual local TLS GET/POST DNS messages, blocked responses, identity verification failures, spoofed proxy headers, oversized/malformed messages and incomplete configuration. **Not accepted for production:** HTTPS certificate rotation, browser integration, mobile Private DNS auto-configuration, encrypted DNS discovery, DNSSEC signature validation, external availability, rate-limit capacity acceptance, DoH compatibility matrices and secure public ingress. Source changes do not modify the VPS or clients' DNS settings.
 
+## Recipient-encrypted policy backup and staged recovery
+
+The first-party cmd/dns-config companion tool uses independently installed age X25519 encryption for bounded backups of only rules.txt and local-records.txt. It validates with the same Go source parsers, includes integrity checks, rejects overwrites, and never writes a plaintext backup. Restores default to dry-run; an explicit apply flag creates a NEW, private staging directory without modifying running DNS or system resolver settings. This intentionally excludes API tokens and TLS keys. See docs/config-recovery.md for commands and the unaccepted full-disaster-recovery requirements.
+
 ## DNS wire, policy and local-record parser fuzzing
 
 The Go test suite now includes corpus-seeded, bounded native fuzz targets for DNS message privacy minimization, upstream question/ID binding, filter policy text parsing and local A/AAAA/CNAME text parsing. Synthetic tests additionally check that EDNS client subnet/cookie options are removed before the resolver contacts its upstream and that the DNSSEC DO/AD wire bits can pass through a mocked recursive resolver. All fuzz targets are local-only, do not perform external DNS queries, and do not retain real client data.

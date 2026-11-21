@@ -27,6 +27,11 @@ jobs:
             printf 'Go source needs gofmt:\\n%s\\n' "$unformatted"
             exit 1
           fi
+      - name: Install distro-provided age for synthetic encrypted restore tests
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends age
+          age --version
       - name: Test resolver
         run: go test -race ./...
       - name: Bounded DNS wire and policy fuzz regression
@@ -42,9 +47,11 @@ jobs:
         run: |
           mkdir -p build/ci
           CGO_ENABLED=0 go build -trimpath -o build/ci/goreecloud-dns-linux-amd64 ./cmd/dnsd
+          CGO_ENABLED=0 go build -trimpath -o build/ci/goreecloud-dns-config-linux-amd64 ./cmd/dns-config
           cd build/ci
-          sha256sum goreecloud-dns-linux-amd64 > SHA256SUMS
+          sha256sum goreecloud-dns-linux-amd64 goreecloud-dns-config-linux-amd64 > SHA256SUMS
           go version -m goreecloud-dns-linux-amd64 > build-info.txt
+          go version -m goreecloud-dns-config-linux-amd64 >> build-info.txt
           printf 'Development-only binary; not signed, released or deployed. Source: %s\n' "$GITHUB_SHA" > README.txt
       - name: Retain development Go binary
         uses: actions/upload-artifact@v4
