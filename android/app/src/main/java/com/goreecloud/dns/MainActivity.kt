@@ -67,7 +67,8 @@ private data class ResolverStatus(
     val rateBurst: Int,
     val localRecords: Long,
     val localAnswers: Long,
-    val upstreamMode: String
+    val upstreamMode: String,
+    val inboundDotEnabled: Boolean
 )
 
 private suspend fun apiRequest(
@@ -114,7 +115,8 @@ private suspend fun fetchStatus(base: String, token: String): ResolverStatus {
         data.getInt("rate_burst"),
         data.getLong("local_records"),
         data.getLong("local_answers"),
-        data.getString("upstream_mode")
+        data.getString("upstream_mode"),
+        data.getBoolean("inbound_dot_enabled")
     )
 }
 
@@ -191,6 +193,7 @@ private fun DNSConsole() {
             Metric("Active rules", data.rules)
             Metric("Allow exceptions", data.exceptions)
             Text("Upstream transport: " + data.upstreamMode)
+            Text("Inbound DNS-over-TLS: " + if (data.inboundDotEnabled) "enabled" else "disabled")
             Text("Local records are managed on the DNS host. Reloading validates them atomically.")
             Button(enabled = !loading, onClick = {
                 loading = true

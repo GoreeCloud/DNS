@@ -14,7 +14,7 @@ Open-source, self-hosted DNS filtering and resolver management, currently an **e
 - Separately packaged Unbound recursive resolver configuration for Docker Compose local development.
 - Unit tests, CI workflows, build manifests, Dockerfiles, security documentation and third-party attribution.
 
-The gateway currently retains no per-client addresses or query history. Supported filtering is domain suffix blocking and explicit allow exceptions, not full AdGuard syntax or regex. It has optional authenticated DNS-over-TLS **upstream forwarding** but does not offer inbound DoT/DoH listeners. Authoritative zone administration, DNSSEC validation in the gateway, DHCP, advanced ACLs, scheduled blocklist updates and production-grade filtering remain unimplemented.
+The gateway currently retains no per-client addresses or query history. Supported filtering is domain suffix blocking and explicit allow exceptions, not full AdGuard syntax or regex. It has optional certificate-verified DNS-over-TLS upstream forwarding and a separately configured **inbound** DNS-over-TLS listener, disabled by default. It does not provide inbound DoH or DoQ. Authoritative zone administration, DNSSEC validation in the gateway, DHCP, advanced ACLs, scheduled blocklist updates and production-grade filtering remain unimplemented.
 
 ## Local development
 
@@ -137,3 +137,17 @@ The Linux binary supports a non-network endpoint validation preflight: goreeclou
 A previous debug APK was independently checksum-verified, temporarily installed, cold-launched on an authorized Android 17 ARM64 handset, and uninstalled without altering any DNS configuration. See docs/ANDROID-PHYSICAL-SMOKE.md. This is limited first-run evidence, not authentication, device accessibility or a release certification.
 
 The updated native Android Compose client validates only trusted HTTPS origins without embedded credentials, path, query or fragments before attaching its management bearer token. Unit tests reject deceptive URLs. The token-bearing screen now requests Android FLAG_SECURE screenshot protection and clears remembered session state when the activity moves to the background. Those newly implemented behaviors require their own exact-commit CI and physical test evidence before being marked physically accepted.
+
+## Optional inbound DNS-over-TLS listener (development)
+
+The gateway supports a separate encrypted DNS-over-TLS listener using the same local policy, CIDR allowlist, global query-rate limit, and upstream recursive forwarding path as its normal UDP/TCP DNS listener. It is **disabled by default**. Operators must explicitly set all three environment values:
+
+- DNS_DOT_LISTEN_ADDR=127.0.0.1:8853 (synthetic/local example; not standard public port 853)
+- DNS_DOT_TLS_CERT_FILE=/path/to/owner-managed/server.crt
+- DNS_DOT_TLS_KEY_FILE=/path/to/owner-only/server.key
+
+An invalid or missing certificate/key, group/world-readable private key, port conflict, or incomplete configuration fails startup. The server requires TLS 1.2+ and supports the DNS-over-TLS ALPN identifier when negotiated. Client applications must independently verify the certificate identity; DoT is **not** an anonymous or authenticated-user management protocol.
+
+Only explicitly configured non-loopback binds are permitted with DNS_DOT_ALLOW_REMOTE=true. This opt-in does not override DNS_ALLOWED_CIDRS: the existing DNS client ACL still defaults to loopback-only, and operators must separately scope the exact trusted LAN networks. Apply firewall rules and owner-controlled TLS identity before any LAN access. No Compose host port, VPS listener, router DNS, or firewall change is made by this source feature. Never publish this preview resolver on a public network or use it for production cutover.
+
+Synthetic loopback tests exercise valid certificate trust, real encrypted A-record queries, filtered NXDOMAIN replies, invalid/unsafe configuration rejection, and client rejection of an untrusted certificate. They do not establish broad DNSSEC/DoH compatibility, certificate renewal, signed releases, real-device secure DNS settings, operational capacity or production readiness.
